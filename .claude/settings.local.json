@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.api-football.com)",
+      "WebSearch",
+      "Bash(pip list *)",
+      "Bash(where python *)",
+      "Bash(python -c \"from world_cup.api import fetch_standings; print\\('api.py imports OK'\\)\")",
+      "Bash(python -c \"from world_cup import app; print\\('app imports OK'\\)\")",
+      "Bash(winget search *)",
+      "Bash(choco -v)",
+      "Bash(where psql *)",
+      "Bash(psql --version)",
+      "Bash(where pg_isready)",
+      "Bash(sc query *)",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"from world_cup import betting_app; print\\('betting_app imports OK'\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('world_cup/betting_app.py', doraise=True\\); print\\('Syntax OK'\\)\")",
+      "Bash(python -c \"import sys; sys.path.insert\\(0, '.'\\); exec\\(open\\('world_cup/betting_app.py'\\).read\\(\\).split\\('st.set_page_config'\\)[0] + 'print\\(\\\\\"Module imports OK\\\\\"\\)'\\)\")",
+      "Bash(python -c \"from world_cup import db; from world_cup import api as match_api; print\\('Imports OK'\\)\")",
+      "Bash(python -c \"import pytest; print\\('pytest', pytest.__version__\\)\")",
+      "Bash(pip install *)",
+      "Bash(Select-Object -Last 5)",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('world_cup/betting_app.py', doraise=True\\); py_compile.compile\\('world_cup/app.py', doraise=True\\); print\\('Syntax OK'\\)\")",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}
