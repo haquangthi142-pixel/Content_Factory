@@ -1,4 +1,5 @@
 import os
+import time
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -14,6 +15,7 @@ except Exception:
     pass
 
 MAX_ATTEMPTS = 3
+LOCKOUT_SECONDS = 60
 
 RED_BUTTON = """
 <style>
@@ -29,6 +31,8 @@ RED_BUTTON = """
 def _pin_gate():
     if "admin_attempts" not in st.session_state:
         st.session_state.admin_attempts = 0
+    if "admin_lockout_until" not in st.session_state:
+        st.session_state.admin_lockout_until = 0.0
 
     if st.session_state.get("admin_authenticated"):
         return True
@@ -36,10 +40,20 @@ def _pin_gate():
     st.title("Admin Panel")
     st.markdown("---")
 
-    remaining = MAX_ATTEMPTS - st.session_state.admin_attempts
-    if remaining <= 0:
-        st.error("Too many failed attempts. Refresh the page to try again.")
+    now = time.time()
+    lockout_remaining = int(st.session_state.admin_lockout_until - now)
+
+    if lockout_remaining > 0:
+        mins = lockout_remaining // 60
+        secs = lockout_remaining % 60
+        if mins:
+            st.error(f"Too many failed attempts. Try again in {mins}m {secs}s.")
+        else:
+            st.error(f"Too many failed attempts. Try again in {secs}s.")
         return False
+
+    attempts = st.session_state.admin_attempts
+    remaining = MAX_ATTEMPTS - attempts
 
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
@@ -50,10 +64,12 @@ def _pin_gate():
             if pin == ADMIN_PIN:
                 st.session_state.admin_authenticated = True
                 st.session_state.admin_attempts = 0
+                st.session_state.admin_lockout_until = 0.0
                 st.rerun()
             else:
                 st.session_state.admin_attempts += 1
-                st.error("Wrong PIN")
+                if st.session_state.admin_attempts >= MAX_ATTEMPTS:
+                    st.session_state.admin_lockout_until = time.time() + LOCKOUT_SECONDS
                 st.rerun()
 
     return False
