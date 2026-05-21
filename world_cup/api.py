@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 from dotenv import load_dotenv
 
@@ -10,14 +11,35 @@ HEADERS = {"X-Auth-Token": API_KEY}
 COMPETITION_CODE = "WC"
 SEASON = 2026
 
+_MIN_INTERVAL = 3.0
+_MAX_RETRIES = 3
+_last_call = 0.0
+
 
 def api_get(endpoint: str, params: dict | None = None) -> dict:
     if params is None:
         params = {}
     url = f"{BASE_URL}{endpoint}"
-    resp = requests.get(url, headers=HEADERS, params=params, timeout=15)
-    resp.raise_for_status()
-    return resp.json()
+
+    for attempt in range(_MAX_RETRIES):
+        _throttle()
+        resp = requests.get(url, headers=HEADERS, params=params, timeout=15)
+
+        if resp.status_code == 403 and attempt < _MAX_RETRIES - 1:
+            delay = 2 ** attempt * 2
+            time.sleep(delay)
+            continue
+
+        resp.raise_for_status()
+        return resp.json()
+
+
+def _throttle():
+    global _last_call
+    elapsed = time.time() - _last_call
+    if elapsed < _MIN_INTERVAL:
+        time.sleep(_MIN_INTERVAL - elapsed)
+    _last_call = time.time()
 
 
 def fetch_matches():
