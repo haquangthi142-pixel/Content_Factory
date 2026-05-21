@@ -7,7 +7,10 @@ load_dotenv()
 
 API_KEY = os.getenv("API_FOOTBALL_KEY", "")
 BASE_URL = "https://api.football-data.org/v4"
-HEADERS = {"X-Auth-Token": API_KEY}
+
+
+def _headers():
+    return {"X-Auth-Token": API_KEY}
 COMPETITION_CODE = "WC"
 SEASON = 2026
 
@@ -23,7 +26,7 @@ def api_get(endpoint: str, params: dict | None = None) -> dict:
 
     for attempt in range(_MAX_RETRIES):
         _throttle()
-        resp = requests.get(url, headers=HEADERS, params=params, timeout=15)
+        resp = requests.get(url, headers=_headers(), params=params, timeout=15)
 
         if resp.status_code == 403 and attempt < _MAX_RETRIES - 1:
             delay = 2 ** attempt * 2

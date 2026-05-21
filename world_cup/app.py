@@ -14,6 +14,11 @@ from world_cup.components import (
     teams_grid,
 )
 
+try:
+    api.API_KEY = st.secrets["API_FOOTBALL_KEY"]
+except KeyError:
+    pass
+
 db.init_db()
 
 if "betting_user" not in st.session_state:
