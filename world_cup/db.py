@@ -427,3 +427,180 @@ def complete_mission(user_id: int, mission_type: str, reward_coins: int):
         conn.commit()
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Admin CRUD
+# ---------------------------------------------------------------------------
+
+def _dict_row(row):
+    return dict(row) if row else None
+
+
+def _dict_rows(rows):
+    return [dict(r) for r in rows]
+
+
+# -- Users --
+
+def admin_get_all_users():
+    conn = get_connection()
+    try:
+        return _dict_rows(conn.execute("SELECT * FROM users ORDER BY id").fetchall())
+    finally:
+        conn.close()
+
+
+def admin_update_user(user_id: int, phone: str, full_name: str, coins: int):
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE users SET phone = ?, full_name = ?, current_coins = ? WHERE id = ?",
+            (phone, full_name, coins, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def admin_delete_user(user_id: int):
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM mission_logs WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM coin_transactions WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM bets WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# -- Matches --
+
+def admin_get_all_matches():
+    conn = get_connection()
+    try:
+        return _dict_rows(conn.execute("SELECT * FROM matches ORDER BY match_time").fetchall())
+    finally:
+        conn.close()
+
+
+def admin_update_match(match_id: int, team_a: str, team_b: str, match_time: str,
+                       status: str, result: str | None):
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE matches SET team_a = ?, team_b = ?, match_time = ?, status = ?, result = ? WHERE match_id = ?",
+            (team_a, team_b, match_time, status, result, match_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def admin_delete_match(match_id: int):
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM bets WHERE match_id = ?", (match_id,))
+        conn.execute("DELETE FROM matches WHERE match_id = ?", (match_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def admin_insert_match(match_id: int, team_a: str, team_b: str, match_time: str,
+                       status: str = "Not Started", result: str | None = None):
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO matches (match_id, team_a, team_b, match_time, status, result) VALUES (?, ?, ?, ?, ?, ?)",
+            (match_id, team_a, team_b, match_time, status, result),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# -- Bets --
+
+def admin_get_all_bets():
+    conn = get_connection()
+    try:
+        return _dict_rows(conn.execute(
+            """SELECT b.*, u.full_name AS user_name, m.team_a, m.team_b
+               FROM bets b
+               JOIN users u ON b.user_id = u.id
+               JOIN matches m ON b.match_id = m.match_id
+               ORDER BY b.created_at DESC"""
+        ).fetchall())
+    finally:
+        conn.close()
+
+
+def admin_update_bet(bet_id: int, bet_choice: str, bet_amount: int, status: str):
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE bets SET bet_choice = ?, bet_amount = ?, status = ? WHERE bet_id = ?",
+            (bet_choice, bet_amount, status, bet_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def admin_delete_bet(bet_id: int):
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM bets WHERE bet_id = ?", (bet_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# -- Transactions --
+
+def admin_get_all_transactions():
+    conn = get_connection()
+    try:
+        return _dict_rows(conn.execute(
+            """SELECT t.*, u.full_name AS user_name
+               FROM coin_transactions t
+               JOIN users u ON t.user_id = u.id
+               ORDER BY t.created_at DESC"""
+        ).fetchall())
+    finally:
+        conn.close()
+
+
+def admin_delete_transaction(tx_id: int):
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM coin_transactions WHERE tx_id = ?", (tx_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# -- Missions --
+
+def admin_get_all_missions():
+    conn = get_connection()
+    try:
+        return _dict_rows(conn.execute(
+            """SELECT m.*, u.full_name AS user_name
+               FROM mission_logs m
+               JOIN users u ON m.user_id = u.id
+               ORDER BY m.completed_at DESC"""
+        ).fetchall())
+    finally:
+        conn.close()
+
+
+def admin_delete_mission(log_id: int):
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM mission_logs WHERE log_id = ?", (log_id,))
+        conn.commit()
+    finally:
+        conn.close()

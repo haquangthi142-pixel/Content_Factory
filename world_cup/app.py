@@ -7,6 +7,7 @@ from datetime import datetime
 
 from world_cup import api
 from world_cup import db
+from world_cup import admin as admin_panel
 from world_cup.components import (
     GLOBAL_CSS,
     match_card,
@@ -16,7 +17,7 @@ from world_cup.components import (
 
 try:
     api.API_KEY = st.secrets["API_FOOTBALL_KEY"]
-except KeyError:
+except Exception:
     pass
 
 db.init_db()
@@ -321,7 +322,7 @@ st.sidebar.markdown(
 st.sidebar.markdown("---")
 view = st.sidebar.radio(
     "Navigation",
-    ["📊 Overview", "📅 Matches", "📋 Group Standings", "🌍 Teams", "🎮 Betting Game"],
+    ["📊 Overview", "📅 Matches", "📋 Group Standings", "🌍 Teams", "🎮 Betting Game", "🔒 Admin"],
     label_visibility="collapsed",
 )
 
@@ -503,6 +504,9 @@ try:
 
     elif view == "🎮 Betting Game":
         _render_betting_game()
+
+    elif view == "🔒 Admin":
+        admin_panel.render_admin()
 
 except requests.exceptions.RequestException as e:
     st.error(f"API connection error: {e}")
