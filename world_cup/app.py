@@ -315,7 +315,7 @@ st.sidebar.markdown(
 )
 st.sidebar.markdown("---")
 view = st.sidebar.radio(
-    "",
+    "Navigation",
     ["📊 Overview", "📅 Matches", "📋 Group Standings", "🌍 Teams", "🎮 Betting Game"],
     label_visibility="collapsed",
 )
