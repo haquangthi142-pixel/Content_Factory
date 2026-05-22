@@ -183,11 +183,15 @@ def sync_matches_from_api():
                 status = "Not Started"
 
             result = None
+            score_a = None
+            score_b = None
             if status_raw in ("FINISHED", "AWARDED"):
                 score = m.get("score", {}).get("fullTime", {})
                 home = score.get("home")
                 away = score.get("away")
                 if home is not None and away is not None:
+                    score_a = home
+                    score_b = away
                     if home > away:
                         result = "A_win"
                     elif away > home:
@@ -196,15 +200,17 @@ def sync_matches_from_api():
                         result = "Draw"
 
             conn.execute("""
-                INSERT INTO matches (match_id, team_a, team_b, match_time, status, result)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO matches (match_id, team_a, team_b, match_time, status, result, score_a, score_b)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(match_id) DO UPDATE SET
                     team_a    = excluded.team_a,
                     team_b    = excluded.team_b,
                     match_time = excluded.match_time,
                     status    = excluded.status,
-                    result    = excluded.result
-            """, (match_id, team_a, team_b, match_time, status, result))
+                    result    = excluded.result,
+                    score_a   = excluded.score_a,
+                    score_b   = excluded.score_b
+            """, (match_id, team_a, team_b, match_time, status, result, score_a, score_b))
 
         conn.commit()
         return len(matches)
@@ -217,19 +223,22 @@ def sync_matches_from_api():
 # ---------------------------------------------------------------------------
 
 def upsert_match(match_id: int, team_a: str, team_b: str, match_time: str,
-                 status: str = "Not Started", result: str = None):
+                 status: str = "Not Started", result: str = None,
+                 score_a: int | None = None, score_b: int | None = None):
     conn = get_connection()
     try:
         conn.execute("""
-            INSERT INTO matches (match_id, team_a, team_b, match_time, status, result)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO matches (match_id, team_a, team_b, match_time, status, result, score_a, score_b)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(match_id) DO UPDATE SET
                 team_a    = excluded.team_a,
                 team_b    = excluded.team_b,
                 match_time = excluded.match_time,
                 status    = excluded.status,
-                result    = excluded.result
-        """, (match_id, team_a, team_b, match_time, status, result))
+                result    = excluded.result,
+                score_a   = excluded.score_a,
+                score_b   = excluded.score_b
+        """, (match_id, team_a, team_b, match_time, status, result, score_a, score_b))
         conn.commit()
     finally:
         conn.close()
@@ -501,12 +510,20 @@ def admin_get_all_matches():
 
 
 def admin_update_match(match_id: int, team_a: str, team_b: str, match_time: str,
-                       status: str, result: str | None):
+                       status: str, result: str | None,
+                       score_a: int | None = None, score_b: int | None = None,
+                       handicap_line: float | None = None,
+                       handicap_favorite: str | None = None,
+                       handicap_fee: int | None = None):
     conn = get_connection()
     try:
         conn.execute(
-            "UPDATE matches SET team_a = ?, team_b = ?, match_time = ?, status = ?, result = ? WHERE match_id = ?",
-            (team_a, team_b, match_time, status, result, match_id),
+            """UPDATE matches SET team_a = ?, team_b = ?, match_time = ?,
+               status = ?, result = ?, score_a = ?, score_b = ?,
+               handicap_line = ?, handicap_favorite = ?, handicap_fee = ?
+               WHERE match_id = ?""",
+            (team_a, team_b, match_time, status, result, score_a, score_b,
+             handicap_line, handicap_favorite, handicap_fee, match_id),
         )
         conn.commit()
     finally:
@@ -524,12 +541,19 @@ def admin_delete_match(match_id: int):
 
 
 def admin_insert_match(match_id: int, team_a: str, team_b: str, match_time: str,
-                       status: str = "Not Started", result: str | None = None):
+                       status: str = "Not Started", result: str | None = None,
+                       score_a: int | None = None, score_b: int | None = None,
+                       handicap_line: float | None = None,
+                       handicap_favorite: str | None = None,
+                       handicap_fee: int | None = None):
     conn = get_connection()
     try:
         conn.execute(
-            "INSERT INTO matches (match_id, team_a, team_b, match_time, status, result) VALUES (?, ?, ?, ?, ?, ?)",
-            (match_id, team_a, team_b, match_time, status, result),
+            """INSERT INTO matches (match_id, team_a, team_b, match_time, status, result,
+               score_a, score_b, handicap_line, handicap_favorite, handicap_fee)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (match_id, team_a, team_b, match_time, status, result,
+             score_a, score_b, handicap_line, handicap_favorite, handicap_fee),
         )
         conn.commit()
     finally:
