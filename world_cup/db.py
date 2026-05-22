@@ -65,6 +65,21 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_tx_user      ON coin_transactions(user_id);
         CREATE INDEX IF NOT EXISTS idx_tx_created   ON coin_transactions(created_at);
     """)
+    # Schema migrations (safe to run repeatedly)
+    for _col, _ddl in [
+        ("score_a", "ALTER TABLE matches ADD COLUMN score_a INTEGER"),
+        ("score_b", "ALTER TABLE matches ADD COLUMN score_b INTEGER"),
+        ("handicap_line", "ALTER TABLE matches ADD COLUMN handicap_line REAL"),
+        ("handicap_favorite", "ALTER TABLE matches ADD COLUMN handicap_favorite TEXT"),
+        ("handicap_fee", "ALTER TABLE matches ADD COLUMN handicap_fee INTEGER DEFAULT 5"),
+        ("market", "ALTER TABLE bets ADD COLUMN market TEXT DEFAULT '1X2'"),
+        ("handicap_line_bet", "ALTER TABLE bets ADD COLUMN handicap_line REAL"),
+        ("handicap_side", "ALTER TABLE bets ADD COLUMN handicap_side TEXT"),
+    ]:
+        try:
+            conn.execute(_ddl)
+        except sqlite3.OperationalError:
+            pass  # column already exists
     conn.commit()
     conn.close()
 
