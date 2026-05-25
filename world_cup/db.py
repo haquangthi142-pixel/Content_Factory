@@ -2,6 +2,8 @@ import sqlite3
 import os
 from datetime import datetime, timezone
 
+from world_cup import game
+
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "game.db")
 
 
@@ -292,11 +294,12 @@ def update_match_result(match_id: int, result: str):
 def place_bet(user_id: int, match_id: int, bet_choice: str, bet_amount: int) -> int:
     conn = get_connection()
     try:
-        # Validate bet amount is multiple of 10
-        if bet_amount <= 0 or bet_amount % 10 != 0:
-            raise ValueError("Bet amount must be a positive multiple of 10")
+        # Validate bet amount
+        ok, err = game.validate_bet_amount(bet_amount)
+        if not ok:
+            raise ValueError(err)
 
-        # Check user has enough coins
+        # Check user exists and has enough coins
         coins = conn.execute("SELECT current_coins FROM users WHERE id = ?", (user_id,)).fetchone()
         if not coins:
             raise ValueError("User not found")
@@ -328,8 +331,61 @@ def place_bet(user_id: int, match_id: int, bet_choice: str, bet_amount: int) -> 
         conn.close()
 
 
+# Re-exported from game.py for backward compatibility
+HANDICAP_PAYOUT = game.HANDICAP_PAYOUT
+get_handicap_payout = game.get_handicap_payout
+calc_handicap_win_amount = game.calc_handicap_win_amount
+
+
+def place_handicap_bet(user_id: int, match_id: int, handicap_side: str,
+                       bet_amount: int, handicap_line: float,
+                       handicap_fee: int) -> int:
+    conn = get_connection()
+    try:
+        ok, err = game.validate_bet_amount(bet_amount)
+        if not ok:
+            raise ValueError(err)
+
+        coins = conn.execute(
+            "SELECT current_coins FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if not coins:
+            raise ValueError("User not found")
+        if coins["current_coins"] < bet_amount:
+            raise ValueError(f"Insufficient coins. You have {coins['current_coins']}.")
+
+        match = conn.execute(
+            "SELECT * FROM matches WHERE match_id = ?", (match_id,)
+        ).fetchone()
+        if not match:
+            raise ValueError("Match not found")
+        if match["status"] == "Finished":
+            raise ValueError("Cannot bet on a finished match")
+
+        conn.execute(
+            "UPDATE users SET current_coins = current_coins - ? WHERE id = ?",
+            (bet_amount, user_id),
+        )
+        cur = conn.execute(
+            """INSERT INTO bets (user_id, match_id, bet_choice, bet_amount, market,
+               handicap_line, handicap_side)
+               VALUES (?, ?, ?, ?, 'handicap', ?, ?)""",
+            (user_id, match_id, handicap_side, bet_amount, handicap_line, handicap_side),
+        )
+        bet_id = cur.lastrowid
+        conn.execute(
+            "INSERT INTO coin_transactions (user_id, amount, type, description) VALUES (?, -?, 'bet', ?)",
+            (user_id, bet_amount,
+             f"Handicap bet on match #{match_id}: {handicap_side} @ {handicap_line}"),
+        )
+        conn.commit()
+        return bet_id
+    finally:
+        conn.close()
+
+
 def settle_match_bets(match_id: int, result: str):
-    """Settle all pending bets for a match when result is known (A_win, B_win, Draw)."""
+    """Settle all pending bets for a match. Handles both 1X2 and handicap markets."""
     conn = get_connection()
     try:
         conn.execute(
@@ -341,13 +397,8 @@ def settle_match_bets(match_id: int, result: str):
         ).fetchall()
 
         for bet in pending:
-            won = (
-                (bet["bet_choice"] == "A" and result == "A_win") or
-                (bet["bet_choice"] == "B" and result == "B_win") or
-                (bet["bet_choice"] == "DRAW" and result == "Draw")
-            )
-            if won:
-                payout = bet["bet_amount"] * 2
+            status, payout = game.settle_bet(bet["bet_choice"], bet["bet_amount"], result)
+            if status == "Won":
                 conn.execute(
                     "UPDATE bets SET status = 'Won', settled_at = datetime('now') WHERE bet_id = ?",
                     (bet["bet_id"],),
@@ -395,10 +446,7 @@ def apply_daily_penalty(date_str: str):
             ).fetchone()
 
             if not has_bet or has_bet["cnt"] == 0:
-                penalty = max(10, user["current_coins"] // 10)  # At least 10 coins
-                if penalty % 10 != 0:
-                    penalty = ((penalty // 10) + 1) * 10  # Round up to multiple of 10
-                actual_penalty = min(penalty, user["current_coins"])  # Don't go below 0
+                actual_penalty = game.calc_penalty_amount(user["current_coins"])
 
                 if actual_penalty > 0:
                     conn.execute(
