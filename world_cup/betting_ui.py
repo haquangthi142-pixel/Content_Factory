@@ -253,7 +253,7 @@ def render_place_bets_tab(user_id: int, coins: int):
             st.success(f"Synced {n} matches")
             st.rerun()
 
-    st.info("💰  **Payout:** 2× your bet on correct outcome. Bets must be in multiples of 10 coins.")
+    st.info("💰  **Payout:** 2× your bet on correct outcome (5% fee deducted). Bets must be in multiples of 10 coins.")
 
     conn = db.get_connection()
     matches = conn.execute(

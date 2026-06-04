@@ -39,10 +39,19 @@ def is_bet_won(bet_choice: str, match_result: str) -> bool:
     return BET_WIN_CONDITIONS.get(bet_choice) == match_result
 
 
+WIN_FEE_PERCENT = 5  # house fee on winning payouts
+
+
 def settle_bet(bet_choice: str, bet_amount: int, match_result: str) -> tuple[str, int]:
-    """Return (new_status, payout_amount) for a settled bet."""
+    """Return (new_status, payout_amount) for a settled bet.
+
+    Winning payout = bet_amount * 2, minus WIN_FEE_PERCENT of the gross.
+    Example: bet 100 → gross 200 → fee 10 → net payout 190.
+    """
     if is_bet_won(bet_choice, match_result):
-        return "Won", bet_amount * 2
+        gross = bet_amount * 2
+        fee = int(gross * WIN_FEE_PERCENT / 100)
+        return "Won", gross - fee
     return "Lost", 0
 
 

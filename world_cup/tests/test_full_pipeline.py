@@ -153,13 +153,17 @@ def show_final_summary(u1, u2):
     alice = db.get_user(u1)
     bob = db.get_user(u2)
 
-    # Alice started: 1000, bet 100+200+150=450, won 200+400+300=900. Net: 1000-450+900=1450
-    # Bob started:   1000, bet 50+100=150, won 0.                     Net: 1000-150=850
+    # Alice: 1000 - 100 - 200 - 150 = 550 after bets
+    #   win #100: +190 (gross 200 - 5% fee 10)
+    #   win #101: +380 (gross 400 - 5% fee 20)
+    #   win #102: +285 (gross 300 - 5% fee 15)
+    #   Net: 1000 - 450 + 855 = 1405
+    # Bob: 1000 - 50 - 100 = 850 after bets, all lost → 850
     print("Expected:")
-    print("  Alice: 1000 - 450 (bets) + 900 (payouts) = 1450 coins")
+    print("  Alice: 1000 - 450 (bets) + 855 (payouts after 5% fee) = 1405 coins")
     print("  Bob:   1000 - 150 (bets) + 0   (payouts) = 850 coins")
     print(f"\nActual:")
-    print(f"  Alice: {alice['current_coins']} coins {'[WIN]' if alice['current_coins'] == 1450 else '[LOST] MISMATCH'}")
+    print(f"  Alice: {alice['current_coins']} coins {'[WIN]' if alice['current_coins'] == 1405 else '[LOST] MISMATCH'}")
     print(f"  Bob:   {bob['current_coins']} coins {'[WIN]' if bob['current_coins'] == 850 else '[LOST] MISMATCH'}")
 
     conn = db.get_connection()

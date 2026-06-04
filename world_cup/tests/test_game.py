@@ -83,7 +83,7 @@ def test_is_bet_won_draw():
 def test_settle_bet_won():
     status, payout = game.settle_bet("A", 100, "A_win")
     assert status == "Won"
-    assert payout == 200
+    assert payout == 190  # gross 200, minus 5% fee (10)
 
 
 def test_settle_bet_lost():
@@ -95,7 +95,7 @@ def test_settle_bet_lost():
 def test_settle_bet_draw():
     status, payout = game.settle_bet("DRAW", 30, "Draw")
     assert status == "Won"
-    assert payout == 60
+    assert payout == 57  # gross 60, minus 5% fee (3)
 
 
 # ===========================================================================
