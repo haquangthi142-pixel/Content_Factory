@@ -21,7 +21,7 @@ def init_db():
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
             phone           TEXT    UNIQUE NOT NULL,
             full_name       TEXT    NOT NULL,
-            current_coins   INTEGER NOT NULL DEFAULT 1000,
+            current_coins   INTEGER NOT NULL DEFAULT 10,
             created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
         );
 
@@ -49,7 +49,7 @@ def init_db():
             tx_id           INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id         INTEGER NOT NULL REFERENCES users(id),
             amount          INTEGER NOT NULL,
-            type            TEXT    NOT NULL CHECK (type IN ('bet', 'win', 'penalty', 'mission', 'refund', 'initial')),
+            type            TEXT    NOT NULL CHECK (type IN ('bet', 'win', 'penalty', 'mission', 'refund', 'initial', 'free_trial', 'purchase')),
             description     TEXT,
             created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
         );
@@ -94,12 +94,12 @@ def register_user(phone: str, full_name: str) -> int:
     conn = get_connection()
     try:
         cur = conn.execute(
-            "INSERT INTO users (phone, full_name, current_coins) VALUES (?, ?, 1000)",
+            "INSERT INTO users (phone, full_name, current_coins) VALUES (?, ?, 10)",
             (phone, full_name),
         )
         user_id = cur.lastrowid
         conn.execute(
-            "INSERT INTO coin_transactions (user_id, amount, type, description) VALUES (?, 1000, 'initial', 'Starting capital')",
+            "INSERT INTO coin_transactions (user_id, amount, type, description) VALUES (?, 10, 'free_trial', 'Free trial coins')",
             (user_id,),
         )
         conn.commit()
@@ -304,7 +304,7 @@ def place_bet(user_id: int, match_id: int, bet_choice: str, bet_amount: int) -> 
         if not coins:
             raise ValueError("User not found")
         if coins["current_coins"] < bet_amount:
-            raise ValueError(f"Insufficient coins. You have {coins['current_coins']}.")
+            raise ValueError(f"Insufficient coins. You have {coins['current_coins']}. Contact admin to purchase more.")
 
         # Check match exists and is not finished
         match = conn.execute("SELECT * FROM matches WHERE match_id = ?", (match_id,)).fetchone()
@@ -352,7 +352,7 @@ def place_handicap_bet(user_id: int, match_id: int, handicap_side: str,
         if not coins:
             raise ValueError("User not found")
         if coins["current_coins"] < bet_amount:
-            raise ValueError(f"Insufficient coins. You have {coins['current_coins']}.")
+            raise ValueError(f"Insufficient coins. You have {coins['current_coins']}. Contact admin to purchase more.")
 
         match = conn.execute(
             "SELECT * FROM matches WHERE match_id = ?", (match_id,)
@@ -421,51 +421,6 @@ def settle_match_bets(match_id: int, result: str):
 
 
 # ---------------------------------------------------------------------------
-# Daily penalty
-# ---------------------------------------------------------------------------
-
-def apply_daily_penalty(date_str: str):
-    """Deduct 10% from users who didn't bet on a match day."""
-    conn = get_connection()
-    try:
-        matches_today = conn.execute(
-            "SELECT COUNT(*) as cnt FROM matches WHERE DATE(match_time) = ?", (date_str,)
-        ).fetchone()
-        if not matches_today or matches_today["cnt"] == 0:
-            conn.close()
-            return 0  # No matches today, no penalty
-
-        users = conn.execute("SELECT id, current_coins FROM users").fetchall()
-        penalized = 0
-
-        for user in users:
-            has_bet = conn.execute(
-                """SELECT COUNT(*) as cnt FROM bets
-                   WHERE user_id = ? AND DATE(created_at) = ?""",
-                (user["id"], date_str),
-            ).fetchone()
-
-            if not has_bet or has_bet["cnt"] == 0:
-                actual_penalty = game.calc_penalty_amount(user["current_coins"])
-
-                if actual_penalty > 0:
-                    conn.execute(
-                        "UPDATE users SET current_coins = current_coins - ? WHERE id = ?",
-                        (actual_penalty, user["id"]),
-                    )
-                    conn.execute(
-                        "INSERT INTO coin_transactions (user_id, amount, type, description) VALUES (?, -?, 'penalty', ?)",
-                        (user["id"], actual_penalty, f"10% inactivity penalty for {date_str}"),
-                    )
-                    penalized += 1
-
-        conn.commit()
-        return penalized
-    finally:
-        conn.close()
-
-
-# ---------------------------------------------------------------------------
 # Leaderboard
 # ---------------------------------------------------------------------------
 
@@ -497,6 +452,44 @@ def complete_mission(user_id: int, mission_type: str, reward_coins: int):
             (user_id, reward_coins, f"Mission: {mission_type}"),
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Coin purchases
+# ---------------------------------------------------------------------------
+
+def purchase_coins(user_id: int, vnd_amount: int) -> int:
+    """Convert VND to coins and credit user. Returns coins credited."""
+    coins = vnd_amount // 1000
+    if coins <= 0:
+        raise ValueError(f"Minimum purchase is 100,000 VND (100 coins). Got {vnd_amount:,} VND.")
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE users SET current_coins = current_coins + ? WHERE id = ?",
+                     (coins, user_id))
+        conn.execute(
+            "INSERT INTO coin_transactions (user_id, amount, type, description) VALUES (?, ?, 'purchase', ?)",
+            (user_id, coins, f"Purchased {coins} coins ({vnd_amount:,} VND)"),
+        )
+        conn.commit()
+        return coins
+    finally:
+        conn.close()
+
+
+def admin_get_purchases():
+    """Return all purchase transactions (admin-only view)."""
+    conn = get_connection()
+    try:
+        return _dict_rows(conn.execute(
+            """SELECT t.*, u.full_name AS user_name
+               FROM coin_transactions t
+               JOIN users u ON t.user_id = u.id
+               WHERE t.type = 'purchase'
+               ORDER BY t.created_at DESC"""
+        ).fetchall())
     finally:
         conn.close()
 
