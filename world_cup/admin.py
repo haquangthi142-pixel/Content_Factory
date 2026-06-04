@@ -87,9 +87,13 @@ def _render_users():
             coins = st.number_input("Starting Coins", min_value=0, value=1000, step=100)
             if st.form_submit_button("Create User"):
                 if phone.strip() and name.strip():
-                    db.register_user(phone.strip(), name.strip())
-                    st.success(f"Created user: {name}")
-                    st.rerun()
+                    existing = db.get_user_by_phone(phone.strip())
+                    if existing:
+                        st.error(f"Phone {phone.strip()} already registered to **{existing['full_name']}**.")
+                    else:
+                        db.register_user(phone.strip(), name.strip())
+                        st.success(f"Created user: {name}")
+                        st.rerun()
                 else:
                     st.warning("Phone and name are required.")
 
