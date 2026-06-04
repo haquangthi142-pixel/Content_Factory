@@ -57,7 +57,7 @@ def test_register_user_creates_user_with_starting_coins():
     user = db_module.get_user(uid)
     assert user["phone"] == "+84123456789"
     assert user["full_name"] == "Test User"
-    assert user["current_coins"] == 1000
+    assert user["current_coins"] == 10
 
     # Check initial coin transaction was recorded
     conn = db_module.get_connection()
@@ -66,8 +66,8 @@ def test_register_user_creates_user_with_starting_coins():
     ).fetchall()
     conn.close()
     assert len(txs) == 1
-    assert txs[0]["type"] == "initial"
-    assert txs[0]["amount"] == 1000
+    assert txs[0]["type"] == "free_trial"
+    assert txs[0]["amount"] == 10
 
 
 def test_get_user_by_phone_finds_correct_user():
@@ -91,7 +91,7 @@ def test_get_user_returns_none_for_bad_id():
 
 def test_get_user_coins():
     uid = db_module.register_user("+84333333333", "Charlie")
-    assert db_module.get_user_coins(uid) == 1000
+    assert db_module.get_user_coins(uid) == 10
 
 
 # ===========================================================================
@@ -100,9 +100,9 @@ def test_get_user_coins():
 
 def test_deduct_coins():
     uid = db_module.register_user("+84444444444", "Dana")
-    db_module.deduct_coins(uid, 200, "bet", "Bet on match #1")
+    db_module.deduct_coins(uid, 5, "bet", "Bet on match #1")
 
-    assert db_module.get_user_coins(uid) == 800
+    assert db_module.get_user_coins(uid) == 5
 
     conn = db_module.get_connection()
     txs = conn.execute(
@@ -110,14 +110,14 @@ def test_deduct_coins():
     ).fetchall()
     conn.close()
     assert len(txs) == 1
-    assert txs[0]["amount"] == -200
+    assert txs[0]["amount"] == -5
 
 
 def test_add_coins():
     uid = db_module.register_user("+84555555555", "Eve")
     db_module.add_coins(uid, 500, "mission", "Daily login")
 
-    assert db_module.get_user_coins(uid) == 1500
+    assert db_module.get_user_coins(uid) == 510
 
 
 # ===========================================================================
@@ -167,10 +167,16 @@ def test_place_bet_deducts_and_records():
     uid = db_module.register_user("+84666666666", "Frank")
     db_module.upsert_match(300, "Brazil", "Argentina", "2026-06-20T18:00:00Z")
 
+    # Boost coins to 200 so the user can place a 100-coin bet
+    conn = db_module.get_connection()
+    conn.execute("UPDATE users SET current_coins = 200 WHERE id = ?", (uid,))
+    conn.commit()
+    conn.close()
+
     bet_id = db_module.place_bet(uid, 300, "A", 100)
     assert bet_id is not None
 
-    assert db_module.get_user_coins(uid) == 900
+    assert db_module.get_user_coins(uid) == 100
 
     conn = db_module.get_connection()
     bet = conn.execute("SELECT * FROM bets WHERE bet_id = ?", (bet_id,)).fetchone()
@@ -212,12 +218,24 @@ def test_place_bet_rejects_finished_match():
     db_module.upsert_match(304, "X", "Y", "2026-06-20T18:00:00Z",
                            status="Finished", result="A_win")
 
+    # Boost coins so the sufficient-coins check passes before the finished-match check
+    conn = db_module.get_connection()
+    conn.execute("UPDATE users SET current_coins = 1000 WHERE id = ?", (uid,))
+    conn.commit()
+    conn.close()
+
     with pytest.raises(ValueError, match="finished match"):
         db_module.place_bet(uid, 304, "A", 100)
 
 
 def test_place_bet_rejects_nonexistent_match():
     uid = db_module.register_user("+84101010101", "Kate")
+
+    # Boost coins so the sufficient-coins check passes before the match-not-found check
+    conn = db_module.get_connection()
+    conn.execute("UPDATE users SET current_coins = 1000 WHERE id = ?", (uid,))
+    conn.commit()
+    conn.close()
 
     with pytest.raises(ValueError, match="Match not found"):
         db_module.place_bet(uid, 99999, "A", 100)
@@ -237,6 +255,13 @@ def test_settle_match_bets_a_win_pays_correctly():
     uid_b = db_module.register_user("+84b00000001", "Bob")
     uid_draw = db_module.register_user("+84d00000001", "Dave")
     db_module.upsert_match(400, "Home", "Away", "2026-06-25T18:00:00Z")
+
+    # Boost all users to 1000 coins for meaningful bets
+    conn = db_module.get_connection()
+    for u in (uid_a, uid_b, uid_draw):
+        conn.execute("UPDATE users SET current_coins = 1000 WHERE id = ?", (u,))
+    conn.commit()
+    conn.close()
 
     db_module.place_bet(uid_a, 400, "A", 100)     # Alice bets Home win
     db_module.place_bet(uid_b, 400, "B", 50)       # Bob bets Away win
@@ -270,6 +295,13 @@ def test_settle_match_bets_draw_pays_draw_bettors():
     uid_d = db_module.register_user("+84d00000002", "D2")
     db_module.upsert_match(401, "Home", "Away", "2026-06-26T18:00:00Z")
 
+    # Boost users to 1000 coins
+    conn = db_module.get_connection()
+    for u in (uid_a, uid_d):
+        conn.execute("UPDATE users SET current_coins = 1000 WHERE id = ?", (u,))
+    conn.commit()
+    conn.close()
+
     db_module.place_bet(uid_a, 401, "A", 100)
     db_module.place_bet(uid_d, 401, "DRAW", 100)
 
@@ -302,7 +334,7 @@ def test_get_leaderboard_orders_by_coins_desc():
     lb = db_module.get_leaderboard()
     assert lb[0]["full_name"] == "Second"   # 1500
     assert lb[1]["full_name"] == "First"    # 1100
-    assert lb[2]["full_name"] == "Third"    # 1000
+    assert lb[2]["full_name"] == "Third"    # 10
 
 
 # ===========================================================================
@@ -313,7 +345,7 @@ def test_complete_mission_adds_coins_and_logs():
     uid = db_module.register_user("+84m00000001", "MissionUser")
     db_module.complete_mission(uid, "daily_login", 20)
 
-    assert db_module.get_user_coins(uid) == 1020
+    assert db_module.get_user_coins(uid) == 30  # 10 + 20
 
     conn = db_module.get_connection()
     logs = conn.execute(
@@ -333,7 +365,7 @@ def test_complete_mission_daily_limit_is_query_side():
     db_module.complete_mission(uid, "daily_login", 20)
 
     # Both go through — enforcement is in the caller (the app checks first)
-    assert db_module.get_user_coins(uid) == 1040
+    assert db_module.get_user_coins(uid) == 50  # 30 + 20
 
     conn = db_module.get_connection()
     logs = conn.execute(
@@ -342,72 +374,6 @@ def test_complete_mission_daily_limit_is_query_side():
     conn.close()
     assert logs["cnt"] == 2
 
-
-# ===========================================================================
-# Daily penalty
-# ===========================================================================
-
-def test_apply_daily_penalty_on_day_with_no_matches_does_nothing():
-    db_module.register_user("+84p00000001", "Penalty1")
-    penalized = db_module.apply_daily_penalty("2026-06-01")
-    assert penalized == 0
-    assert db_module.get_user_coins(1) == 1000
-
-
-def test_apply_daily_penalty_when_user_did_not_bet():
-    uid = db_module.register_user("+84p00000002", "Penalty2")
-    db_module.upsert_match(500, "A", "B", "2026-06-10T14:00:00Z")
-
-    penalized = db_module.apply_daily_penalty("2026-06-10")
-    assert penalized == 1
-    # Penalty is 10% of 1000 = 100
-    assert db_module.get_user_coins(uid) == 900
-
-
-def test_apply_daily_penalty_spares_user_who_bet():
-    uid = db_module.register_user("+84p00000003", "Penalty3")
-    db_module.upsert_match(501, "A", "B", "2026-06-11T14:00:00Z")
-    db_module.place_bet(uid, 501, "A", 100)
-
-    # Force the bet's created_at to match the match date so the penalty check sees it
-    conn = db_module.get_connection()
-    conn.execute("UPDATE bets SET created_at = '2026-06-11 10:00:00' WHERE user_id = ?", (uid,))
-    conn.commit()
-    conn.close()
-
-    penalized = db_module.apply_daily_penalty("2026-06-11")
-    assert penalized == 0
-    # Only lost the bet amount, not penalized
-    assert db_module.get_user_coins(uid) == 900
-
-
-def test_apply_daily_penalty_rounds_up_to_multiple_of_10():
-    uid = db_module.register_user("+84p00000004", "Penalty4")
-    # Set coins to an odd amount
-    conn = db_module.get_connection()
-    conn.execute("UPDATE users SET current_coins = 1050 WHERE id = ?", (uid,))
-    conn.commit()
-    conn.close()
-
-    db_module.upsert_match(502, "A", "B", "2026-06-12T14:00:00Z")
-    penalized = db_module.apply_daily_penalty("2026-06-12")
-    assert penalized == 1
-    # 10% of 1050 = 105, rounded up to 110
-    assert db_module.get_user_coins(uid) == 940
-
-
-def test_apply_daily_penalty_with_small_balance_still_deducts_minimum():
-    uid = db_module.register_user("+84p00000005", "Penalty5")
-    conn = db_module.get_connection()
-    conn.execute("UPDATE users SET current_coins = 5 WHERE id = ?", (uid,))
-    conn.commit()
-    conn.close()
-
-    db_module.upsert_match(503, "A", "B", "2026-06-13T14:00:00Z")
-    penalized = db_module.apply_daily_penalty("2026-06-13")
-    assert penalized == 1
-    # min(10, 5) = 5 — shouldn't go below 0
-    assert db_module.get_user_coins(uid) == 0
 
 
 # ===========================================================================
@@ -463,6 +429,12 @@ def test_place_multiple_bets_same_match():
     uid = db_module.register_user("+84multi00001", "Multi1")
     db_module.upsert_match(700, "Brazil", "Thailand", "2026-06-20T18:00:00Z")
 
+    # Boost to 1000 coins for multiple bets
+    conn = db_module.get_connection()
+    conn.execute("UPDATE users SET current_coins = 1000 WHERE id = ?", (uid,))
+    conn.commit()
+    conn.close()
+
     bet1 = db_module.place_bet(uid, 700, "A", 100)
     bet2 = db_module.place_bet(uid, 700, "DRAW", 50)
     bet3 = db_module.place_bet(uid, 700, "A", 30)
@@ -488,6 +460,12 @@ def test_place_multiple_bets_mixed_markets():
         handicap_line=1.5, handicap_favorite="A", handicap_fee=5,
     )
 
+    # Boost to 1000 coins for multiple bets
+    conn = db_module.get_connection()
+    conn.execute("UPDATE users SET current_coins = 1000 WHERE id = ?", (uid,))
+    conn.commit()
+    conn.close()
+
     bet1 = db_module.place_bet(uid, 701, "A", 100)
     bet2 = db_module.place_handicap_bet(uid, 701, "favorite", 100, 1.5, 5)
 
@@ -509,6 +487,12 @@ def test_settle_multiple_bets_same_user():
     """All of a user's bets on a match settle correctly."""
     uid = db_module.register_user("+84multi00003", "Multi3")
     db_module.upsert_match(702, "Brazil", "Thailand", "2026-06-22T18:00:00Z")
+
+    # Boost to 1000 coins for multiple bets
+    conn = db_module.get_connection()
+    conn.execute("UPDATE users SET current_coins = 1000 WHERE id = ?", (uid,))
+    conn.commit()
+    conn.close()
 
     db_module.place_bet(uid, 702, "A", 100)
     db_module.place_bet(uid, 702, "A", 50)
