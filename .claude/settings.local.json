@@ -45,7 +45,23 @@
       "Bash(winget install *)",
       "PowerShell(Test-Path *)",
       "PowerShell($env:TEMP)",
-      "Bash(start *)"
+      "Bash(start *)",
+      "Bash(streamlit run *)",
+      "Bash(Select-Object -First 20)",
+      "PowerShell(streamlit run *)",
+      "PowerShell(python -m streamlit run world_cup/app.py --server.headless true 2>&1 | Select-Object -First 25)",
+      "Bash(pip show *)",
+      "Bash(Select-String \"Version\")",
+      "PowerShell(python -m streamlit run world_cup/app.py --server.headless true --server.port 8501)",
+      "PowerShell(python -m streamlit run C:\\\\Users\\\\staff\\\\OneDrive\\\\Desktop\\\\Python\\\\Content_Factory\\\\world_cup\\\\app.py --server.headless true --server.port 8501)",
+      "WebFetch(domain:localhost)",
+      "Bash(set PYTHONIOENCODING=utf-8)",
+      "PowerShell($env:PYTHONIOENCODING = 'utf-8'; python C:/Users/staff/OneDrive/Desktop/Python/Content_Factory/world_cup/tests/test_full_pipeline.py)",
+      "PowerShell($env:PYTHONIOENCODING = 'utf-8'; python -m pytest C:/Users/staff/OneDrive/Desktop/Python/Content_Factory/world_cup/tests/test_game.py -v 2>&1)",
+      "PowerShell($env:PYTHONIOENCODING = 'utf-8'; python -m pytest C:/Users/staff/OneDrive/Desktop/Python/Content_Factory/world_cup/tests/ -v)",
+      "PowerShell($env:PYTHONIOENCODING = 'utf-8'; python -m pytest C:/Users/staff/OneDrive/Desktop/Python/Content_Factory/world_cup/tests/ -v --ignore=tests/test_api.py -k \"not mocker\" 2>&1)",
+      "PowerShell(python -m streamlit run C:/Users/staff/OneDrive/Desktop/Python/Content_Factory/world_cup/app.py --server.headless true --server.port 8501)",
+      "PowerShell(Get-Content 'C:\\\\Users\\\\staff\\\\OneDrive\\\\Desktop\\\\Python\\\\Content_Factory\\\\world_cup\\\\betting_app.py' -Encoding UTF8 | Select-Object -Index \\(189..204\\) | ForEach-Object { $_ -replace \"`t\", \"<TAB>\" })"
     ]
   }
 }

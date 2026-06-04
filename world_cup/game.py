@@ -75,32 +75,6 @@ def calc_handicap_win_amount(bet_amount: int, handicap_line: float, fee_percent:
 
 
 # ---------------------------------------------------------------------------
-# Daily penalty
-# ---------------------------------------------------------------------------
-
-def calc_penalty_amount(current_coins: int) -> int:
-    """10% of coins, rounded up to multiple of 10, minimum 10 coins."""
-    penalty = max(10, current_coins // 10)
-    if penalty % 10 != 0:
-        penalty = ((penalty // 10) + 1) * 10
-    if penalty > current_coins:
-        penalty = current_coins
-    return penalty
-
-
-def calc_users_to_penalize(users: list[dict], user_ids_who_bet: set[int]) -> list[dict]:
-    """Given all users and the set of user IDs who bet, return users to penalize."""
-    result = []
-    for u in users:
-        if u["id"] in user_ids_who_bet:
-            continue
-        penalty = calc_penalty_amount(u["current_coins"])
-        if penalty > 0:
-            result.append({**u, "penalty": penalty})
-    return result
-
-
-# ---------------------------------------------------------------------------
 # Missions
 # ---------------------------------------------------------------------------
 
