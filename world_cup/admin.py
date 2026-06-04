@@ -187,15 +187,31 @@ def _render_matches():
             key="edit_match_result",
         )
 
-        col_save, col_del = st.columns([1, 1])
+        col_save, col_settle, col_del = st.columns([1, 1, 1])
         with col_save:
             if st.button("Save Changes", key="save_match"):
+                final_result = None if new_result == "None" else new_result
                 db.admin_update_match(
                     selected_id, new_team_a, new_team_b, new_time, new_status,
-                    None if new_result == "None" else new_result,
+                    final_result,
                 )
-                st.success("Match updated.")
+                # Auto-settle bets if match is set to Finished with a result
+                if new_status == "Finished" and final_result:
+                    db.settle_match_bets(selected_id, final_result)
+                    st.success(f"Match updated & bets settled: {final_result}")
+                else:
+                    st.success("Match updated.")
                 st.rerun()
+        with col_settle:
+            # Standalone settle button for matches that already have a result
+            cur_result_val = match.get("result")
+            can_settle = cur_result_val and cur_result_val != "None"
+            if st.button("⚡ Settle Bets", key="settle_match", disabled=not can_settle,
+                         help="Settle all pending bets on this match"):
+                if cur_result_val:
+                    db.settle_match_bets(selected_id, cur_result_val)
+                    st.success(f"Bets settled: {cur_result_val}")
+                    st.rerun()
         with col_del:
             st.markdown(RED_BUTTON, unsafe_allow_html=True)
             st.markdown('<div class="admin-delete-btn">', unsafe_allow_html=True)
