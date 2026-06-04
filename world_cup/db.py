@@ -370,7 +370,7 @@ def place_handicap_bet(user_id: int, match_id: int, handicap_side: str,
             """INSERT INTO bets (user_id, match_id, bet_choice, bet_amount, market,
                handicap_line, handicap_side)
                VALUES (?, ?, ?, ?, 'handicap', ?, ?)""",
-            (user_id, match_id, handicap_side, bet_amount, handicap_line, handicap_side),
+            (user_id, match_id, "A", bet_amount, handicap_line, handicap_side),
         )
         bet_id = cur.lastrowid
         conn.execute(

@@ -452,3 +452,79 @@ def test_sync_matches_from_api_empty_list(mocker):
     mocker.patch("world_cup.api.fetch_matches", return_value={"matches": []})
     n = db_module.sync_matches_from_api()
     assert n == 0
+
+
+# ===========================================================================
+# Multi-bet per match
+# ===========================================================================
+
+def test_place_multiple_bets_same_match():
+    """User can place multiple 1X2 bets on the same match."""
+    uid = db_module.register_user("+84multi00001", "Multi1")
+    db_module.upsert_match(700, "Brazil", "Thailand", "2026-06-20T18:00:00Z")
+
+    bet1 = db_module.place_bet(uid, 700, "A", 100)
+    bet2 = db_module.place_bet(uid, 700, "DRAW", 50)
+    bet3 = db_module.place_bet(uid, 700, "A", 30)
+
+    assert bet1 != bet2 != bet3
+    assert db_module.get_user_coins(uid) == 820  # 1000 - 100 - 50 - 30
+
+    conn = db_module.get_connection()
+    bets = conn.execute(
+        "SELECT * FROM bets WHERE user_id = ? AND match_id = ?", (uid, 700)
+    ).fetchall()
+    conn.close()
+    assert len(bets) == 3
+
+
+def test_place_multiple_bets_mixed_markets():
+    """User can mix 1X2 and handicap bets on the same match."""
+    uid = db_module.register_user("+84multi00002", "Multi2")
+    db_module.upsert_match(701, "Germany", "Japan", "2026-06-21T18:00:00Z")
+    db_module.admin_update_match(
+        701, "Germany", "Japan", "2026-06-21T18:00:00Z",
+        "Not Started", None,
+        handicap_line=1.5, handicap_favorite="A", handicap_fee=5,
+    )
+
+    bet1 = db_module.place_bet(uid, 701, "A", 100)
+    bet2 = db_module.place_handicap_bet(uid, 701, "favorite", 100, 1.5, 5)
+
+    assert bet1 != bet2
+    assert db_module.get_user_coins(uid) == 800  # 1000 - 100 - 100
+
+    conn = db_module.get_connection()
+    bets = conn.execute(
+        "SELECT market FROM bets WHERE user_id = ? AND match_id = ? ORDER BY bet_id",
+        (uid, 701),
+    ).fetchall()
+    conn.close()
+    markets = [b["market"] for b in bets]
+    assert "1X2" in markets
+    assert "handicap" in markets
+
+
+def test_settle_multiple_bets_same_user():
+    """All of a user's bets on a match settle correctly."""
+    uid = db_module.register_user("+84multi00003", "Multi3")
+    db_module.upsert_match(702, "Brazil", "Thailand", "2026-06-22T18:00:00Z")
+
+    db_module.place_bet(uid, 702, "A", 100)
+    db_module.place_bet(uid, 702, "A", 50)
+    db_module.place_bet(uid, 702, "B", 30)
+
+    db_module.settle_match_bets(702, "A_win")
+
+    # Won: 100*2 + 50*2 = 300. Lost: 30. Net: 1000 - 180 + 300 = 1120
+    assert db_module.get_user_coins(uid) == 1120
+
+    conn = db_module.get_connection()
+    bets = conn.execute(
+        "SELECT bet_choice, status FROM bets WHERE user_id = ? AND match_id = ? ORDER BY bet_id",
+        (uid, 702),
+    ).fetchall()
+    conn.close()
+    assert bets[0]["status"] == "Won"
+    assert bets[1]["status"] == "Won"
+    assert bets[2]["status"] == "Lost"

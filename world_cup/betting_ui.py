@@ -302,6 +302,39 @@ def render_place_bets_tab(user_id: int, coins: int):
             _render_match_fixture(m, utc_dt, user_id, coins)
 
 
+def _render_existing_bets(bets: list, m: dict):
+    """Render a compact list of the user's existing bets on this match."""
+    sc = {"Pending": "rgba(243,156,18,0.85)", "Won": "#2ecc71",
+          "Lost": "#e74c3c", "Refunded": "#95a5a6"}
+
+    rows = []
+    for b in bets:
+        if b.get("market") == "handicap":
+            side = "Favorite" if b.get("handicap_side") == "favorite" else "Underdog"
+            choice = f"Handicap · {side} @ {b.get('handicap_line', '?')}"
+        else:
+            cd = {"A": f"{m['team_a']} Win", "B": f"{m['team_b']} Win", "DRAW": "Draw"}
+            choice = f"1X2 · {cd.get(b['bet_choice'], b['bet_choice'])}"
+
+        s_color = sc.get(b["status"], "gray")
+        rows.append(
+            f"<tr><td style='padding:3px 8px 3px 0;'>#{b['bet_id']}</td>"
+            f"<td style='padding:3px 8px;'>{choice}</td>"
+            f"<td style='padding:3px 8px;font-family:JetBrains Mono,monospace;text-align:right;'>{b['bet_amount']:,} coins</td>"
+            f"<td style='padding:3px 0 3px 8px;text-align:right;'>"
+            f"<span style='display:inline-block;font-size:0.7rem;padding:2px 10px;border-radius:10px;background:{s_color};color:#fff;'>{b['status']}</span></td></tr>"
+        )
+
+    st.markdown(f"""
+    <div style="flex-basis:100%;padding:0.5rem 0;margin-top:0.25rem;border-top:1px solid var(--border-subtle);">
+        <span style="font-family:'Chakra Petch',sans-serif;font-size:0.8rem;color:var(--text-secondary);">Your bets:</span>
+        <table style="width:100%;font-family:'Chakra Petch',sans-serif;font-size:0.82rem;color:var(--text-primary);margin-top:4px;">
+            {''.join(rows)}
+        </table>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 def _render_match_fixture(m: dict, utc_dt: datetime, user_id: int, coins: int):
     match_id = m["match_id"]
     vn_dt = utc_dt.astimezone(VN_TZ)
@@ -309,69 +342,80 @@ def _render_match_fixture(m: dict, utc_dt: datetime, user_id: int, coins: int):
     time_vn = vn_dt.strftime("%H:%M")
 
     conn = db.get_connection()
-    existing = conn.execute(
-        "SELECT * FROM bets WHERE user_id = ? AND match_id = ?",
+    existing_bets = conn.execute(
+        "SELECT * FROM bets WHERE user_id = ? AND match_id = ? ORDER BY created_at",
         (user_id, match_id),
-    ).fetchone()
+    ).fetchall()
     conn.close()
 
     is_live = m["status"] == "Live"
-    card_class = "live" if is_live else ("already-bet" if existing else "")
+    has_bets = len(existing_bets) > 0
+    card_class = "live" if is_live else ("already-bet" if has_bets else "")
 
     if is_live:
         status_html = '<span class="status-badge live-badge">● LIVE</span>'
     else:
         status_html = '<span class="status-badge upcoming-badge">📅 Upcoming</span>'
 
-    if existing:
-        bm = {"A": f"{m['team_a']} Win", "B": f"{m['team_b']} Win", "DRAW": "Draw"}
-        st.markdown(f"""
-        <div class="match-fixture {card_class}">
-            <div class="fixture-time">
-                <div class="time-utc">{time_utc}</div>
-                <div class="time-vn">{time_vn} VN</div>
-            </div>
-            <div class="fixture-teams">
-                <span class="team-name home">{m['team_a']}</span>
-                <span class="vs-badge">VS</span>
-                <span class="team-name away">{m['team_b']}</span>
-            </div>
-            <div style="flex-shrink:0;text-align:center;min-width:75px">{status_html}</div>
-            <div class="fixture-bet-info">
-                <div class="bet-choice">✓ {bm.get(existing['bet_choice'], existing['bet_choice'])}</div>
-                <div class="bet-amount">{existing['bet_amount']} coins</div>
-            </div>
+    # Match card (open tag)
+    st.markdown(f"""
+    <div class="match-fixture {card_class}">
+        <div class="fixture-time">
+            <div class="time-utc">{time_utc}</div>
+            <div class="time-vn">{time_vn} VN</div>
         </div>
-        """, unsafe_allow_html=True)
-        return
+        <div class="fixture-teams">
+            <span class="team-name home">{m['team_a']}</span>
+            <span class="vs-badge">VS</span>
+            <span class="team-name away">{m['team_b']}</span>
+        </div>
+        <div style="flex-shrink:0;text-align:center;min-width:75px">{status_html}</div>
+    """, unsafe_allow_html=True)
 
-    card_col, btn_col = st.columns([6, 1])
-    with card_col:
-        st.markdown(f"""
-        <div class="match-fixture {card_class}">
-            <div class="fixture-time">
-                <div class="time-utc">{time_utc}</div>
-                <div class="time-vn">{time_vn} VN</div>
-            </div>
-            <div class="fixture-teams">
-                <span class="team-name home">{m['team_a']}</span>
-                <span class="vs-badge">VS</span>
-                <span class="team-name away">{m['team_b']}</span>
-            </div>
-            <div style="flex-shrink:0;text-align:center;min-width:75px">{status_html}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with btn_col:
+    # Show existing bets inline in the card
+    if has_bets:
+        _render_existing_bets(existing_bets, m)
+
+    # Close match-fixture div
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # "Place Bet" / "Place Another Bet" button — always visible
+    btn_col1, btn_col2 = st.columns([5, 1])
+    with btn_col2:
         ek = f"bet_expand_{match_id}"
         if ek not in st.session_state:
             st.session_state[ek] = False
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Place Bet  →", key=f"btn_{match_id}", use_container_width=True):
+        btn_label = "Place Another Bet  →" if has_bets else "Place Bet  →"
+        if st.button(btn_label, key=f"btn_{match_id}", use_container_width=True):
             st.session_state[ek] = not st.session_state[ek]
             st.rerun()
 
+    # Expanded bet slip
     if st.session_state.get(f"bet_expand_{match_id}", False):
-        _render_bet_slip(m, coins, match_id)
+        has_handicap = m.get("handicap_line") is not None
+        if has_handicap:
+            market_key = f"market_{match_id}"
+            if market_key not in st.session_state:
+                st.session_state[market_key] = "1X2"
+            market_choice = st.radio(
+                "Select Market:",
+                ["1X2 (Win/Draw/Win)", "Handicap"],
+                key=market_key,
+                horizontal=True,
+            )
+            is_handicap = market_choice.startswith("Handicap")
+        else:
+            is_handicap = False
+
+        if is_handicap:
+            # _render_handicap_bet_slip from handicap plan
+            _render_handicap_bet_slip = globals().get("_render_handicap_bet_slip")
+            if _render_handicap_bet_slip:
+                _render_handicap_bet_slip(m, coins, match_id)
+            else:
+                st.info("Handicap betting coming soon.")
+        else:
+            _render_bet_slip(m, coins, match_id)
 
 
 def _render_bet_slip(m: dict, coins: int, match_id: int):
