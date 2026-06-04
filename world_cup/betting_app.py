@@ -161,6 +161,15 @@ if st.session_state.user is None:
 
 
 # ---------------------------------------------------------------------------
+# Auto-sync matches on first login (once per session)
+# ---------------------------------------------------------------------------
+
+if not st.session_state.get("_matches_synced"):
+    db.sync_matches_from_api()
+    st.session_state._matches_synced = True
+
+
+# ---------------------------------------------------------------------------
 # Main game UI (user is logged in)
 # ---------------------------------------------------------------------------
 

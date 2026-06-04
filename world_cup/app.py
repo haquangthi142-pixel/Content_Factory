@@ -62,6 +62,11 @@ def _render_betting_game():
         st.session_state.betting_user = st.session_state.user
         return
 
+    # Auto-sync matches on first login (once per session)
+    if not st.session_state.get("_matches_synced"):
+        db.sync_matches_from_api()
+        st.session_state._matches_synced = True
+
     user = st.session_state.user
     user_data = db.get_user(user["id"])
     coins = user_data["current_coins"]
