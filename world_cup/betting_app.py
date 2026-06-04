@@ -189,9 +189,16 @@ with btn_col:
 
 st.markdown("---")
 
-tab_bet, tab_mybets, tab_leaderboard, tab_missions = st.tabs([
-    "⚽  Place Bets", "📋  My Bets", "🏅  Leaderboard", "🎯  Missions"
-])
+is_admin = st.session_state.get("admin_authenticated", False)
+
+if is_admin:
+    tab_bet, tab_mybets, tab_leaderboard, tab_missions = st.tabs([
+        "⚽  Place Bets", "📋  My Bets", "🏅  Leaderboard", "🎯  Missions"
+    ])
+else:
+    tab_bet, tab_mybets = st.tabs([
+        "⚽  Place Bets", "📋  My Bets"
+    ])
 
 with tab_bet:
     betting_ui.render_place_bets_tab(user["id"], coins)
@@ -199,8 +206,9 @@ with tab_bet:
 with tab_mybets:
     betting_ui.render_my_bets_tab(user["id"])
 
-with tab_leaderboard:
-    betting_ui.render_leaderboard_tab()
+if is_admin:
+    with tab_leaderboard:
+        betting_ui.render_leaderboard_tab()
 
-with tab_missions:
-    betting_ui.render_missions_tab(user["id"])
+    with tab_missions:
+        betting_ui.render_missions_tab(user["id"])
