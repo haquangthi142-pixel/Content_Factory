@@ -309,9 +309,10 @@ def _render_existing_bets(bets: list, m: dict):
 
     rows = []
     for b in bets:
-        if b.get("market") == "handicap":
-            side = "Favorite" if b.get("handicap_side") == "favorite" else "Underdog"
-            choice = f"Handicap · {side} @ {b.get('handicap_line', '?')}"
+        if b["market"] == "handicap":
+            side = "Favorite" if b["handicap_side"] == "favorite" else "Underdog"
+            hl = b["handicap_line"]
+            choice = f"Handicap · {side} @ {hl if hl is not None else '?'}"
         else:
             cd = {"A": f"{m['team_a']} Win", "B": f"{m['team_b']} Win", "DRAW": "Draw"}
             choice = f"1X2 · {cd.get(b['bet_choice'], b['bet_choice'])}"
@@ -385,14 +386,14 @@ def _render_match_fixture(m: dict, utc_dt: datetime, user_id: int, coins: int):
         ek = f"bet_expand_{match_id}"
         if ek not in st.session_state:
             st.session_state[ek] = False
-        btn_label = "Place Another Bet  →" if has_bets else "Place Bet  →"
+        btn_label = "Bet  →"
         if st.button(btn_label, key=f"btn_{match_id}", use_container_width=True):
             st.session_state[ek] = not st.session_state[ek]
             st.rerun()
 
     # Expanded bet slip
     if st.session_state.get(f"bet_expand_{match_id}", False):
-        has_handicap = m.get("handicap_line") is not None
+        has_handicap = m["handicap_line"] is not None
         if has_handicap:
             market_key = f"market_{match_id}"
             if market_key not in st.session_state:
