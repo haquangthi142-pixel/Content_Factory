@@ -30,7 +30,14 @@ def seed_data():
     # -- Users --
     u1 = db.register_user("+8490111222", "Alice Test")
     u2 = db.register_user("+8490111333", "Bob Test")
-    print(f"[OK] Users: Alice id={u1}, Bob id={u2}")
+
+    # Boost coins for testing (default is 10, need 1000 for meaningful bets)
+    conn = db.get_connection()
+    conn.execute("UPDATE users SET current_coins = 1000 WHERE id = ?", (u1,))
+    conn.execute("UPDATE users SET current_coins = 1000 WHERE id = ?", (u2,))
+    conn.commit()
+    conn.close()
+    print(f"[OK] Users: Alice id={u1}, Bob id={u2} (1000 coins each)")
 
     # -- Matches --
     matches = [
