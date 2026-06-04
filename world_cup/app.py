@@ -25,6 +25,8 @@ db.init_db()
 
 if "betting_user" not in st.session_state:
     st.session_state.betting_user = None
+if "user" not in st.session_state:
+    st.session_state.user = None
 
 
 @st.cache_data(ttl=300, show_spinner=False)
