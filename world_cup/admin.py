@@ -84,7 +84,7 @@ def _render_users():
             c1, c2 = st.columns(2)
             phone = c1.text_input("Phone")
             name = c2.text_input("Full Name")
-            coins = st.number_input("Starting Coins", min_value=0, value=1000, step=100)
+            coins = st.number_input("Starting Coins", min_value=0, value=10, step=10)
             if st.form_submit_button("Create User"):
                 if phone.strip() and name.strip():
                     existing = db.get_user_by_phone(phone.strip())
@@ -131,6 +131,27 @@ def _render_users():
                 st.success(f"Deleted user #{selected_id}")
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown("#### Buy Coins (VND → Coins)")
+    buy_user_id = st.selectbox("Player", user_ids, key="buy_coins_user")
+    buy_vnd = st.number_input(
+        "VND Amount",
+        min_value=100000,
+        value=100000,
+        step=100000,
+        key="buy_vnd",
+        help="1,000 VND = 1 coin. Min 100,000 VND."
+    )
+    buy_coins = buy_vnd // 1000
+    st.caption(f"Coins to credit: **{buy_coins}** ({buy_vnd:,} VND)")
+    if st.button("Credit Coins", key="buy_coins_btn"):
+        try:
+            credited = db.purchase_coins(buy_user_id, buy_vnd)
+            st.success(f"Credited {credited} coins to user #{buy_user_id}")
+            st.rerun()
+        except ValueError as e:
+            st.error(str(e))
 
 
 def _render_matches():
@@ -336,6 +357,22 @@ def _render_missions():
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+def _render_purchases():
+    st.subheader("Coin Purchases")
+    purchases = db.admin_get_purchases()
+
+    if not purchases:
+        st.info("No purchases yet.")
+        return
+
+    st.caption(f"{len(purchases)} purchases")
+    display_cols = ["tx_id", "user_name", "amount", "description", "created_at"]
+    st.dataframe(
+        [{k: p[k] for k in display_cols} for p in purchases],
+        use_container_width=True, hide_index=True,
+    )
+
+
 def render_admin():
     if not _pin_gate():
         return
@@ -343,7 +380,7 @@ def render_admin():
     st.title("Admin Panel")
     st.caption(f"Authenticated — {db.DB_PATH}")
 
-    tabs = st.tabs(["Users", "Matches", "Bets", "Transactions", "Missions"])
+    tabs = st.tabs(["Users", "Matches", "Bets", "Transactions", "Purchases", "Missions"])
 
     with tabs[0]:
         _render_users()
@@ -354,4 +391,6 @@ def render_admin():
     with tabs[3]:
         _render_transactions()
     with tabs[4]:
+        _render_purchases()
+    with tabs[5]:
         _render_missions()
