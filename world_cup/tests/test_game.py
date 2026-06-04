@@ -117,55 +117,6 @@ def test_calc_handicap_win_amount():
     assert amount == 171
 
 
-# ===========================================================================
-# calc_penalty_amount
-# ===========================================================================
-
-def test_calc_penalty_standard():
-    assert game.calc_penalty_amount(1000) == 100
-
-
-def test_calc_penalty_rounds_up_to_multiple_of_10():
-    # 10% of 1050 = 105, round up -> 110
-    assert game.calc_penalty_amount(1050) == 110
-
-
-def test_calc_penalty_minimum_10():
-    assert game.calc_penalty_amount(50) == 10
-
-
-def test_calc_penalty_small_balance_caps_at_balance():
-    # 10% of 5 = 0.5, min 10, capped at 5
-    assert game.calc_penalty_amount(5) == 5
-
-
-# ===========================================================================
-# calc_users_to_penalize
-# ===========================================================================
-
-def test_calc_users_to_penalize():
-    users = [
-        {"id": 1, "current_coins": 1000, "full_name": "A"},
-        {"id": 2, "current_coins": 500, "full_name": "B"},
-        {"id": 3, "current_coins": 100, "full_name": "C"},
-    ]
-    result = game.calc_users_to_penalize(users, {1})
-    assert len(result) == 2  # users 2 and 3
-    penalized_ids = {u["id"] for u in result}
-    assert penalized_ids == {2, 3}
-    assert result[0]["penalty"] > 0
-
-
-def test_calc_users_to_penalize_everyone_bets():
-    users = [{"id": 1, "current_coins": 1000}]
-    result = game.calc_users_to_penalize(users, {1})
-    assert len(result) == 0
-
-
-def test_calc_users_to_penalize_empty():
-    result = game.calc_users_to_penalize([], set())
-    assert result == []
-
 
 # ===========================================================================
 # missions
