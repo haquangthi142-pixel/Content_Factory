@@ -48,8 +48,11 @@ def fetch_group_standings():
 
 
 def _render_betting_game():
-    # Bridge session state: app.py uses 'betting_user', betting_ui uses 'user'
-    st.session_state.user = st.session_state.betting_user
+    # Bridge session state: app.py uses 'betting_user', betting_ui uses 'user'.
+    # Only seed user from betting_user when user isn't already set (e.g. by a
+    # just-completed login that triggered st.rerun before we could sync back).
+    if st.session_state.user is None and st.session_state.betting_user is not None:
+        st.session_state.user = st.session_state.betting_user
 
     if st.session_state.user is None:
         with st.container():
