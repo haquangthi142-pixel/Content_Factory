@@ -244,8 +244,8 @@ def test_settle_match_bets_a_win_pays_correctly():
 
     db_module.settle_match_bets(400, "A_win")
 
-    # Alice should get 2x = 200 coins
-    assert db_module.get_user_coins(uid_a) == 1100  # 1000 - 100 + 200
+    # Alice: 1000 - 100 + 190 (gross 200 - 5% fee 10)
+    assert db_module.get_user_coins(uid_a) == 1090
 
     # Bob lost
     assert db_module.get_user_coins(uid_b) == 950   # 1000 - 50
@@ -276,7 +276,7 @@ def test_settle_match_bets_draw_pays_draw_bettors():
     db_module.settle_match_bets(401, "Draw")
 
     assert db_module.get_user_coins(uid_a) == 900    # lost
-    assert db_module.get_user_coins(uid_d) == 1100   # won: 1000 - 100 + 200
+    assert db_module.get_user_coins(uid_d) == 1090   # won: 1000 - 100 + 190 (gross 200 - 5% fee)
 
 
 def test_settle_match_bets_updates_match_status():
@@ -516,8 +516,9 @@ def test_settle_multiple_bets_same_user():
 
     db_module.settle_match_bets(702, "A_win")
 
-    # Won: 100*2 + 50*2 = 300. Lost: 30. Net: 1000 - 180 + 300 = 1120
-    assert db_module.get_user_coins(uid) == 1120
+    # Won: 100*2=200-10fee=190, 50*2=100-5fee=95. Lost: 30.
+    # Net: 1000 - 180 + 285 = 1105
+    assert db_module.get_user_coins(uid) == 1105
 
     conn = db_module.get_connection()
     bets = conn.execute(
