@@ -2,51 +2,105 @@
 
 ## Progress Log
 
-### 2026-06-04 — Session Summary
+### 2026-06-05 — Session Summary
 
 ---
 
-## Bug Fixes
-
-| # | Commit | Issue | Fix |
-|---|--------|-------|-----|
-| 1 | `89901ab` | Login button not working in embedded betting tab | `st.session_state.user` was unconditionally overwritten by `betting_user` (always `None`) on every rerun |
-| 2 | `e3f5c23` | `st.session_state has no attribute "user"` | Missing initialization — added alongside `betting_user` |
-| 3 | `8fcbc8c` | `'sqlite3.Row' object has no attribute 'get'` | Replaced `.get()` with bracket access on DB rows; renamed "Place Bet" → "Bet" |
-| 4 | `0037b3b` | Admin panel crash on duplicate phone | Added `get_user_by_phone()` check before creating new user |
-
----
-
-## Features Added
+## Features Added (2026-06-05)
 
 | # | Commit | Feature |
 |---|--------|---------|
-| 1 | `0f532c4` | Full pipeline test + wired `settle_match_bets` into admin Save/⚡Settle button |
-| 2 | `14d4ffd` | **5% house fee** on winning bets (gross payout − 5%) |
-| 3 | `cdd4228` | Updated DB unit tests for 5% fee |
-| 4 | `4bdd698` | **Auto-sync matches** from football-data.org on player sign-in (once per session) |
-| 5 | `dde98d9` | **Hide Leaderboard & Missions** from regular players — admin only |
-| 6 | `c64a72b`–`17988af` | **Coin Economy Rework** (see below) |
+| 1 | `f2e02b3` | **Handicap betting** — full feature: UI form, settlement logic, admin controls, 6 new tests |
+| 2 | `f2e02b3` | **Security hardening** — password auth, HTML escaping, rate limiting, session timeout |
+| 3 | `f2e02b3` | **Player buy coins** — sidebar form with confirm flow → admin approve/reject |
+| 4 | `f2e02b3` | **Purchase request system** — request queue, admin approve/reject, status tracking |
+| 5 | `f2e02b3` | **Admin UI redesign** — black/white theme, phone search for buy coins, cleaned up all tabs |
+| 6 | `f2e02b3` | **Match card unification** — betting game uses same match-card CSS as Overview tab |
+| 7 | `0ff87cd` | **Quick-add buttons fixed** — +10/+50/+100 now accumulate correctly via shared widget key |
 
 ---
 
-## Coin Economy Rework
+## Bug Fixes (2026-06-05)
 
-### What changed:
-| Before | After |
-|--------|-------|
-| 1,000 free coins on registration | **10 free coins** (1 minimum bet) |
-| No way to buy coins | Admin **Buy Coins** form: VND → coins (1,000 VND = 1 coin, min 100K) |
-| Daily inactivity penalty (10%) | **Removed** |
-| No purchase tracking | **Purchases tab** in admin |
+| # | Commit | Issue | Fix |
+|---|--------|-------|-----|
+| 1 | `0ff87cd` | Quick-add buttons not updating bet amount | Buttons wrote to `amt_key` but number_input reads from `num_key`. Unified to single session state key. Also fixed handicap bet slip. |
+| 2 | `f2e02b3` | `'sqlite3.Row' object has no attribute 'get'` in My Bets | Replaced `.get()` with bracket access for `market`, `handicap_side`, `handicap_line` |
+| 3 | `f2e02b3` | 0-coin player crash on bet | Guard `coins < 10` before rendering number_input to avoid `min > max` error |
 
-### Commits:
-- `c64a72b` — Remove penalty from `game.py`
-- `3c64f2f` — 10 free coins, remove penalty from `db.py`, add `purchase_coins()`
-- `3594584` — Admin buy-coins form + Purchases tab
-- `1f0df7f` — Remove penalty tests from `test_game.py`
-- `f623004` — Update `test_db.py` for 10 coins
-- `17988af` — Update `test_full_pipeline.py` coin baseline
+---
+
+## Security Hardening
+
+| Layer | Implementation |
+|-------|---------------|
+| **Passwords** | PBKDF2-SHA256 (600K iterations) with per-user salt. `password_hash` column. Backward compat for existing users (prompt to set password). Admin-created users default to `123123`. |
+| **HTML escaping** | `html.escape()` on all user names + team names rendered via `unsafe_allow_html=True` |
+| **Rate limiting** | Max 10 bets/min per user (in-memory). `_reset_rate_limits()` for tests. |
+| **Session timeout** | 60 min idle → auto-logout via `_last_activity` timestamp |
+| **Admin safety** | `password_hash` excluded from admin user list |
+
+---
+
+## Handicap Betting
+
+| Component | What |
+|-----------|------|
+| `game.py` | `settle_handicap_bet()` — win/loss from scores, handicap line, favorite side |
+| `betting_ui.py` | `_render_handicap_bet_slip()` — full form with payout preview, quick-add buttons |
+| `db.py` | `settle_match_bets()` branches on `bet["market"]`, skips handicap bets without score data |
+| `admin.py` | Add/Edit match forms include handicap line, favorite, fee + score fields |
+| `test_game.py` | 6 new tests: favorite covers, fails to cover, underdog wins, draw, no scores, favorite=B |
+
+---
+
+## Purchase Request Flow
+
+```
+Player (sidebar) → "Send Request" → Confirm popup → DB (purchase_requests, status=pending)
+                                                              ↓
+Admin (Users tab) → Pending Requests list → [Approve] / [Reject]
+                                                              ↓
+                                              Approve → credits coins + logs transaction
+                                              Reject  → marks rejected, no coins
+```
+
+New table: `purchase_requests` (req_id, user_id, vnd_amount, coin_amount, status, created_at, processed_at)
+
+---
+
+## Admin Panel (Redesigned)
+
+- Single `ADMIN_CSS` block with `.admin-root` wrapper — black bg, white text throughout
+- All selects/inputs styled: black `#0a0a0a` background, white text
+- Buy Coins: phone search via text input → radio select → confirm checkbox → credit
+- Pending request approval section above manual credit form
+- Purchases tab shows completed transactions + request history
+- All edit sections use searchable selectboxes with descriptive labels
+
+---
+
+## Betting UI Changes
+
+- Match display unified with Overview tab's `match_card_db()` CSS
+- Quick-add buttons: `[+10] [+50] [+100]` in horizontal row, accumulate on click
+- Buy Coins: sidebar form always visible while on Betting Game tab
+- 0-coin players see clear error instead of crash
+- Removed "Data via football-data.org" from title bar
+
+---
+
+## Test Coverage
+
+```bash
+# All tests (skip tests needing pytest-mock)
+python -m pytest world_cup/tests/ -v -k "not sync_matches and not test_api"
+# → 54 passed (26 game + 28 db)
+
+# Full pipeline
+python world_cup/tests/test_full_pipeline.py
+# → Alice: 1405 coins, Bob: 850 coins [WIN]
+```
 
 ---
 
@@ -56,30 +110,17 @@
 # Install
 pip install streamlit requests python-dotenv
 
-# Set API key in .env
+# Set secrets in .env
 API_FOOTBALL_KEY=your_key
 ADMIN_PIN=your_pin
 
 # Run main dashboard
 streamlit run world_cup/app.py
-
-# Run standalone betting game
-streamlit run world_cup/betting_app.py
-```
-
-## How to Test
-
-```bash
-# Unit tests
-python -m pytest world_cup/tests/ -v -k "not sync_matches"
-
-# Full pipeline test
-python world_cup/tests/test_full_pipeline.py
 ```
 
 ## Admin PIN
 
-Default: `0000` (set via `.env`: `ADMIN_PIN=yourpin`)
+Default: `thihq@1010` (set via `.env`: `ADMIN_PIN=yourpin`)
 
 ## Exchange Rate
 
