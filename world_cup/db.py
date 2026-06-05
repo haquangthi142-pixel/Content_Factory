@@ -84,6 +84,16 @@ def init_db():
             completed_at    TEXT    NOT NULL DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS purchase_requests (
+            req_id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id         INTEGER NOT NULL REFERENCES users(id),
+            vnd_amount      INTEGER NOT NULL,
+            coin_amount     INTEGER NOT NULL,
+            status          TEXT    NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+            created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+            processed_at    TEXT
+        );
+
         CREATE INDEX IF NOT EXISTS idx_bets_user    ON bets(user_id);
         CREATE INDEX IF NOT EXISTS idx_bets_match   ON bets(match_id);
         CREATE INDEX IF NOT EXISTS idx_tx_user      ON coin_transactions(user_id);
@@ -562,6 +572,98 @@ def admin_get_purchases():
                WHERE t.type = 'purchase'
                ORDER BY t.created_at DESC"""
         ).fetchall())
+    finally:
+        conn.close()
+
+
+def request_purchase(user_id: int, vnd_amount: int) -> int:
+    """Player submits a coin purchase request. Returns request ID."""
+    coins = vnd_amount // 1000
+    if coins <= 0:
+        raise ValueError(f"Minimum purchase is 100,000 VND (100 coins). Got {vnd_amount:,} VND.")
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "INSERT INTO purchase_requests (user_id, vnd_amount, coin_amount) VALUES (?, ?, ?)",
+            (user_id, vnd_amount, coins),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def admin_get_purchase_requests(status_filter: str | None = None):
+    """Return purchase requests. status_filter: 'pending', 'approved', 'rejected', or None for all."""
+    conn = get_connection()
+    try:
+        if status_filter:
+            rows = conn.execute(
+                """SELECT r.*, u.full_name AS user_name, u.phone
+                   FROM purchase_requests r
+                   JOIN users u ON r.user_id = u.id
+                   WHERE r.status = ?
+                   ORDER BY r.created_at DESC""",
+                (status_filter,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT r.*, u.full_name AS user_name, u.phone
+                   FROM purchase_requests r
+                   JOIN users u ON r.user_id = u.id
+                   ORDER BY r.created_at DESC"""
+            ).fetchall()
+        return _dict_rows(rows)
+    finally:
+        conn.close()
+
+
+def admin_approve_purchase_request(req_id: int) -> dict:
+    """Approve a purchase request and credit coins. Returns updated request row."""
+    conn = get_connection()
+    try:
+        req = conn.execute(
+            "SELECT * FROM purchase_requests WHERE req_id = ?", (req_id,)
+        ).fetchone()
+        if not req:
+            raise ValueError(f"Request #{req_id} not found.")
+        if req["status"] != "pending":
+            raise ValueError(f"Request #{req_id} is already {req['status']}.")
+
+        conn.execute(
+            "UPDATE purchase_requests SET status = 'approved', processed_at = datetime('now') WHERE req_id = ?",
+            (req_id,),
+        )
+        conn.execute("UPDATE users SET current_coins = current_coins + ? WHERE id = ?",
+                     (req["coin_amount"], req["user_id"]))
+        conn.execute(
+            "INSERT INTO coin_transactions (user_id, amount, type, description) VALUES (?, ?, 'purchase', ?)",
+            (req["user_id"], req["coin_amount"],
+             f"Purchased {req['coin_amount']} coins ({req['vnd_amount']:,} VND) [req #{req_id}]"),
+        )
+        conn.commit()
+        return dict(req)
+    finally:
+        conn.close()
+
+
+def admin_reject_purchase_request(req_id: int):
+    """Reject a purchase request."""
+    conn = get_connection()
+    try:
+        req = conn.execute(
+            "SELECT * FROM purchase_requests WHERE req_id = ?", (req_id,)
+        ).fetchone()
+        if not req:
+            raise ValueError(f"Request #{req_id} not found.")
+        if req["status"] != "pending":
+            raise ValueError(f"Request #{req_id} is already {req['status']}.")
+
+        conn.execute(
+            "UPDATE purchase_requests SET status = 'rejected', processed_at = datetime('now') WHERE req_id = ?",
+            (req_id,),
+        )
+        conn.commit()
     finally:
         conn.close()
 

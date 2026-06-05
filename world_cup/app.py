@@ -87,32 +87,12 @@ def _render_betting_game():
 
     betting_ui.render_game_header(user_data, coins, rank)
 
-    btn_col1, btn_col2 = st.columns([6, 1])
-    with btn_col2:
+    _, btn_col = st.columns([6, 1])
+    with btn_col:
         if st.button("←  Logout", key="bet_logout"):
             st.session_state.betting_user = None
             st.session_state.user = None
             st.rerun()
-    with btn_col1:
-        with st.expander("💰  Buy Coins", expanded=False):
-            c1, c2 = st.columns(2)
-            with c1:
-                vnd = st.number_input(
-                    "VND Amount", min_value=100000, value=100000, step=100000,
-                    key="buy_coins_vnd",
-                    help="1,000 VND = 1 coin. Minimum 100,000 VND.",
-                )
-                est_coins = vnd // 1000
-                st.caption(f"Adds **{est_coins}** coins to your wallet")
-            with c2:
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Purchase Coins  ✓", key="buy_coins_player", use_container_width=True):
-                    try:
-                        credited = db.purchase_coins(user["id"], vnd)
-                        st.success(f"+{credited} coins! Wallet updated.")
-                        st.rerun()
-                    except ValueError as e:
-                        st.error(str(e))
 
     st.markdown("---")
 
@@ -153,7 +133,7 @@ st.title("🏆 World Cup 2026")
 st.markdown(
     "<p style='color:var(--text-muted);font-family:Chakra Petch,sans-serif;margin-top:-0.5rem'>"
     "Host: USA · Canada · Mexico &nbsp;|&nbsp; "
-    f"Data via football-data.org &nbsp;|&nbsp; {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    f"{datetime.now().strftime('%Y-%m-%d %H:%M')}"
     "</p>",
     unsafe_allow_html=True,
 )
@@ -174,6 +154,49 @@ view = st.sidebar.radio(
     ["📊 Overview", "📅 Matches", "📋 Group Standings", "🌍 Teams", "🎮 Betting Game", "🔒 Admin"],
     label_visibility="collapsed",
 )
+
+# Always-visible Buy Coins in sidebar (when logged in)
+if st.session_state.get("user") is not None:
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(
+        "<span style='font-family:Bebas Neue,sans-serif;color:var(--gold-bright);font-size:1.1rem'>💰  BUY COINS</span>",
+        unsafe_allow_html=True,
+    )
+    user = st.session_state.user
+    user_data = db.get_user(user["id"])
+    coins = user_data["current_coins"]
+    st.sidebar.caption(f"Balance: **{coins} coins**")
+    vnd = st.sidebar.number_input(
+        "VND", min_value=100000, value=100000, step=100000,
+        key="buy_coins_sidebar_vnd",
+        help="1,000 VND = 1 coin.",
+    )
+    est = vnd // 1000
+    st.sidebar.caption(f"→ **{est} coins** ({vnd:,} VND)")
+
+    # Confirmation flow
+    if st.session_state.get("_confirm_buy"):
+        st.sidebar.warning(f"Confirm: send {est} coins request for **{vnd:,} VND**?")
+        cc1, cc2 = st.sidebar.columns(2)
+        with cc1:
+            if st.button("Yes ✓", key="buy_confirm_yes", use_container_width=True):
+                try:
+                    req_id = db.request_purchase(user["id"], vnd)
+                    st.sidebar.success(f"Request #{req_id} sent!")
+                    # Clear form
+                    for k in ["_confirm_buy", "buy_coins_sidebar_vnd"]:
+                        st.session_state.pop(k, None)
+                    st.rerun()
+                except ValueError as e:
+                    st.sidebar.error(str(e))
+        with cc2:
+            if st.button("No ✕", key="buy_confirm_no", use_container_width=True):
+                st.session_state._confirm_buy = False
+                st.rerun()
+    else:
+        if st.sidebar.button("Send Request  ✓", key="buy_coins_sidebar_btn", use_container_width=True):
+            st.session_state._confirm_buy = True
+            st.rerun()
 
 try:
     if view == "📊 Overview":

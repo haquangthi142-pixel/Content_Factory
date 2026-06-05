@@ -210,14 +210,16 @@ def _render_users():
             c1, c2 = st.columns(2)
             phone = c1.text_input("Phone", key="add_user_phone")
             name = c2.text_input("Full Name", key="add_user_name")
-            coins = st.number_input("Starting Coins", min_value=0, value=10, step=10, key="add_user_coins")
+            c3, c4 = st.columns(2)
+            password = c3.text_input("Password", type="password", value="123123", key="add_user_password")
+            coins = c4.number_input("Starting Coins", min_value=0, value=10, step=10, key="add_user_coins")
             if st.form_submit_button("Create User"):
                 if phone.strip() and name.strip():
                     existing = db.get_user_by_phone(phone.strip())
                     if existing:
                         st.error(f"Phone {phone.strip()} already registered to **{existing['full_name']}**.")
                     else:
-                        db.register_user(phone.strip(), name.strip())
+                        db.register_user(phone.strip(), name.strip(), password.strip())
                         st.success(f"Created user: {name}")
                         st.rerun()
                 else:
@@ -268,9 +270,38 @@ def _render_users():
 
     st.markdown("---")
 
-    # -- Buy Coins --
+    # -- Pending Purchase Requests --
     st.markdown("---")
-    st.subheader("Buy Coins")
+    st.subheader("Pending Purchase Requests")
+
+    pending_reqs = db.admin_get_purchase_requests("pending")
+    if pending_reqs:
+        for req in pending_reqs:
+            col_info, col_btn = st.columns([3, 1])
+            with col_info:
+                st.markdown(
+                    f"**#{req['req_id']}** — {req['user_name']} ({req['phone']}) "
+                    f"requests **{req['coin_amount']} coins** ({req['vnd_amount']:,} VND) — "
+                    f"{req['created_at'][:16]}"
+                )
+            with col_btn:
+                c_approve, c_reject = st.columns(2)
+                with c_approve:
+                    if st.button(f"Approve", key=f"approve_{req['req_id']}"):
+                        db.admin_approve_purchase_request(req["req_id"])
+                        st.success(f"Approved #{req['req_id']}")
+                        st.rerun()
+                with c_reject:
+                    if st.button(f"Reject", key=f"reject_{req['req_id']}"):
+                        db.admin_reject_purchase_request(req["req_id"])
+                        st.warning(f"Rejected #{req['req_id']}")
+                        st.rerun()
+            st.markdown("---")
+    else:
+        st.info("No pending requests.")
+
+    # -- Manual Buy Coins --
+    st.subheader("Manual Credit")
 
     # Clear form after purchase
     if st.session_state.get("_clear_buy_form"):
@@ -578,18 +609,32 @@ def _render_missions():
 
 
 def _render_purchases():
+    # -- Completed purchase transactions --
     purchases = db.admin_get_purchases()
+    st.subheader("Completed Transactions")
+    if purchases:
+        st.caption(f"{len(purchases)} purchase(s)")
+        display_cols = ["tx_id", "user_name", "amount", "description", "created_at"]
+        st.dataframe(
+            [{k: p[k] for k in display_cols} for p in purchases],
+            use_container_width=True, hide_index=True,
+        )
+    else:
+        st.info("No completed purchases yet.")
 
-    if not purchases:
-        st.info("No purchases yet.")
-        return
-
-    st.caption(f"{len(purchases)} purchase(s)")
-    display_cols = ["tx_id", "user_name", "amount", "description", "created_at"]
-    st.dataframe(
-        [{k: p[k] for k in display_cols} for p in purchases],
-        use_container_width=True, hide_index=True,
-    )
+    # -- All purchase requests --
+    st.markdown("---")
+    st.subheader("Request History")
+    all_reqs = db.admin_get_purchase_requests()
+    if all_reqs:
+        st.caption(f"{len(all_reqs)} request(s)")
+        display_cols = ["req_id", "user_name", "phone", "vnd_amount", "coin_amount", "status", "created_at"]
+        st.dataframe(
+            [{k: r.get(k) for k in display_cols} for r in all_reqs],
+            use_container_width=True, hide_index=True,
+        )
+    else:
+        st.info("No purchase requests yet.")
 
 
 def render_admin():

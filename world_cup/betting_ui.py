@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 
 from world_cup import db
+from world_cup.components import match_card_db
 
 # ---------------------------------------------------------------------------
 # CSS
@@ -316,7 +317,7 @@ def render_place_bets_tab(user_id: int, coins: int):
         """, unsafe_allow_html=True)
 
         for m, utc_dt in day_matches:
-            _render_match_fixture(m, utc_dt, user_id, coins)
+            _render_match_fixture(m, user_id, coins)
 
 
 def _render_existing_bets(bets: list, m: dict):
@@ -353,11 +354,8 @@ def _render_existing_bets(bets: list, m: dict):
     """, unsafe_allow_html=True)
 
 
-def _render_match_fixture(m: dict, utc_dt: datetime, user_id: int, coins: int):
+def _render_match_fixture(m: dict, user_id: int, coins: int):
     match_id = m["match_id"]
-    vn_dt = utc_dt.astimezone(VN_TZ)
-    time_utc = utc_dt.strftime("%H:%M")
-    time_vn = vn_dt.strftime("%H:%M")
 
     conn = db.get_connection()
     existing_bets = conn.execute(
@@ -366,45 +364,20 @@ def _render_match_fixture(m: dict, utc_dt: datetime, user_id: int, coins: int):
     ).fetchall()
     conn.close()
 
-    is_live = m["status"] == "Live"
-    has_bets = len(existing_bets) > 0
-    card_class = "live" if is_live else ("already-bet" if has_bets else "")
+    # Render match card using same style as Overview tab
+    match_card_db(dict(m))
 
-    if is_live:
-        status_html = '<span class="status-badge live-badge">● LIVE</span>'
-    else:
-        status_html = '<span class="status-badge upcoming-badge">📅 Upcoming</span>'
-
-    # Match card (open tag)
-    st.markdown(f"""
-    <div class="match-fixture {card_class}">
-        <div class="fixture-time">
-            <div class="time-utc">{time_utc}</div>
-            <div class="time-vn">{time_vn} VN</div>
-        </div>
-        <div class="fixture-teams">
-            <span class="team-name home">{html.escape(m['team_a'])}</span>
-            <span class="vs-badge">VS</span>
-            <span class="team-name away">{html.escape(m['team_b'])}</span>
-        </div>
-        <div style="flex-shrink:0;text-align:center;min-width:75px">{status_html}</div>
-    """, unsafe_allow_html=True)
-
-    # Show existing bets inline in the card
-    if has_bets:
+    # Show existing bets inline
+    if existing_bets:
         _render_existing_bets(existing_bets, m)
 
-    # Close match-fixture div
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # "Place Bet" / "Place Another Bet" button — always visible
+    # "Bet" button
     btn_col1, btn_col2 = st.columns([5, 1])
     with btn_col2:
         ek = f"bet_expand_{match_id}"
         if ek not in st.session_state:
             st.session_state[ek] = False
-        btn_label = "Bet  →"
-        if st.button(btn_label, key=f"btn_{match_id}", use_container_width=True):
+        if st.button("Bet  →", key=f"btn_{match_id}", use_container_width=True):
             st.session_state[ek] = not st.session_state[ek]
             st.rerun()
 
@@ -426,7 +399,6 @@ def _render_match_fixture(m: dict, utc_dt: datetime, user_id: int, coins: int):
             is_handicap = False
 
         if is_handicap:
-            # _render_handicap_bet_slip from handicap plan
             _render_handicap_bet_slip = globals().get("_render_handicap_bet_slip")
             if _render_handicap_bet_slip:
                 _render_handicap_bet_slip(m, coins, match_id)
@@ -578,13 +550,13 @@ def render_my_bets_tab(user_id: int):
     sc = {"Pending": "rgba(243,156,18,0.85)", "Won": "var(--green-ok)",
           "Lost": "var(--red-live)", "Refunded": "#95a5a6"}
     for b in my_bets:
-        if b.get("market") == "handicap":
-            side = "Favorite" if b.get("handicap_side") == "favorite" else "Underdog"
-            hl = b.get("handicap_line")
+        if b["market"] == "handicap":
+            side = "Favorite" if b["handicap_side"] == "favorite" else "Underdog"
+            hl = b["handicap_line"]
             choice_str = f"Handicap · {side} @ {hl if hl is not None else '?'}"
         else:
             cd = {"A": f"{b['team_a']} Win", "B": f"{b['team_b']} Win", "DRAW": "Draw"}
-            choice_str = cd.get(b['bet_choice'], b['bet_choice'])
+            choice_str = cd[b['bet_choice']] if b['bet_choice'] in cd else b['bet_choice']
         status_color = sc.get(b["status"], "gray")
         st.markdown(f"""
         <div class="history-row">

@@ -1,3 +1,4 @@
+import html
 import streamlit as st
 from datetime import datetime, timedelta, timezone
 
@@ -176,6 +177,13 @@ hr { border-color: var(--border-subtle) !important; margin: 0.5rem 0 !important;
 [aria-label="Search player by phone"] * {
     color: #ffffff !important;
 }
+
+/* ── Sidebar number input: dark text ── */
+section[data-testid="stSidebar"] input[type="number"],
+section[data-testid="stSidebar"] .stNumberInput input {
+    color: #000000 !important;
+    background: #ffffff !important;
+}
 """
 
 STATUS_MAP = {
@@ -283,6 +291,79 @@ def match_card(match, expanded: bool = False):
     </div>
     """
     st.markdown(html, unsafe_allow_html=True)
+
+
+def match_card_db(match: dict):
+    """Render a DB match row using the match-card CSS (same style as Overview tab)."""
+    home_name = match["team_a"] or "TBD"
+    away_name = match["team_b"] or "TBD"
+    status = match.get("status") or "Not Started"
+    score_a = match.get("score_a")
+    score_b = match.get("score_b")
+
+    # Status label & color
+    if status == "Live":
+        status_label, badge_color = "● LIVE", "#e67e22"
+    elif status == "Finished":
+        status_label, badge_color = "Full Time", "#27ae60"
+    else:
+        status_label, badge_color = "Upcoming", "#5a6a7a"
+
+    is_live = status == "Live"
+
+    # Time parsing
+    utc_str = match.get("match_time") or ""
+    match_date = utc_str[:10] if utc_str else ""
+    match_time_utc = utc_str[11:16] if len(utc_str) >= 16 else ""
+    match_time_vn = ""
+    if utc_str:
+        try:
+            from datetime import timezone as _tz, timedelta as _td
+            utc_dt = datetime.strptime(utc_str.replace("Z", "+00:00"), "%Y-%m-%dT%H:%M:%S%z")
+            vn_tz = _tz(_td(hours=7))
+            vn_dt = utc_dt.astimezone(vn_tz)
+            match_time_vn = vn_dt.strftime("%H:%M")
+        except (ValueError, AttributeError):
+            pass
+
+    try:
+        dt = datetime.strptime(match_date, "%Y-%m-%d")
+        date_display = dt.strftime("%a %d %b %Y")
+    except ValueError:
+        date_display = match_date
+
+    # Score
+    if status == "Finished" and score_a is not None and score_b is not None:
+        score_html = f'<div class="match-score">{score_a} – {score_b}</div>'
+    elif is_live and score_a is not None and score_b is not None:
+        score_html = f'<div class="match-score">{score_a} – {score_b}</div>'
+    else:
+        score_html = '<div class="match-score pending">vs</div>'
+
+    live_class = " live" if is_live else ""
+
+    st.markdown(f"""
+    <div class="match-card{live_class}">
+        <div class="match-date-badge">
+            \U0001f4c5 <span class="match-date-big">{date_display}</span>
+            {f'<span>· {match_time_utc} UTC / {match_time_vn} VN</span>' if match_time_utc and match_time_vn else f'<span>· {match_time_utc} UTC</span>' if match_time_utc else ''}
+        </div>
+        <div class="match-card-inner">
+            <div class="match-team">
+                <div class="match-team-name">{html.escape(home_name)}</div>
+            </div>
+            <div class="match-score-area">
+                {score_html}
+            </div>
+            <div class="match-team">
+                <div class="match-team-name">{html.escape(away_name)}</div>
+            </div>
+            <div style="flex:0 0 auto;text-align:center">
+                <span class="match-status-badge" style="background:{badge_color}">{status_label}</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def group_standings_table(groups: dict):

@@ -61,7 +61,16 @@
       "PowerShell($env:PYTHONIOENCODING = 'utf-8'; python -m pytest C:/Users/staff/OneDrive/Desktop/Python/Content_Factory/world_cup/tests/ -v)",
       "PowerShell($env:PYTHONIOENCODING = 'utf-8'; python -m pytest C:/Users/staff/OneDrive/Desktop/Python/Content_Factory/world_cup/tests/ -v --ignore=tests/test_api.py -k \"not mocker\" 2>&1)",
       "PowerShell(python -m streamlit run C:/Users/staff/OneDrive/Desktop/Python/Content_Factory/world_cup/app.py --server.headless true --server.port 8501)",
-      "PowerShell(Get-Content 'C:\\\\Users\\\\staff\\\\OneDrive\\\\Desktop\\\\Python\\\\Content_Factory\\\\world_cup\\\\betting_app.py' -Encoding UTF8 | Select-Object -Index \\(189..204\\) | ForEach-Object { $_ -replace \"`t\", \"<TAB>\" })"
+      "PowerShell(Get-Content 'C:\\\\Users\\\\staff\\\\OneDrive\\\\Desktop\\\\Python\\\\Content_Factory\\\\world_cup\\\\betting_app.py' -Encoding UTF8 | Select-Object -Index \\(189..204\\) | ForEach-Object { $_ -replace \"`t\", \"<TAB>\" })",
+      "PowerShell(python -m pytest world_cup/tests/test_game.py -v)",
+      "PowerShell(git *)",
+      "PowerShell(python -m pytest world_cup/tests/test_db.py -v -k \"not sync_matches\")",
+      "PowerShell($env:PYTHONIOENCODING='utf-8'; python world_cup/tests/test_full_pipeline.py)",
+      "PowerShell($env:PYTHONIOENCODING = 'utf-8'; python -m pytest world_cup/tests/test_game.py world_cup/tests/test_db.py -v -k \"not sync_matches\" 2>&1)",
+      "PowerShell($env:PYTHONIOENCODING = 'utf-8'; python world_cup/tests/test_full_pipeline.py)",
+      "Skill(run)",
+      "Bash(New-Item *)",
+      "PowerShell(New-Item *)"
     ]
   }
 }
