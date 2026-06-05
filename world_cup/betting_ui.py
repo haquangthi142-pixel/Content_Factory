@@ -452,31 +452,39 @@ def _render_bet_slip(m: dict, coins: int, match_id: int):
     )
     choice_map = {f"{m['team_a']} Win": "A", "Draw": "DRAW", f"{m['team_b']} Win": "B"}
 
-    amt_key = f"amount_{match_id}"
-    if amt_key not in st.session_state:
-        st.session_state[amt_key] = min(50, coins)
+    num_key = f"num_{match_id}"
+    if num_key not in st.session_state:
+        st.session_state[num_key] = min(50, coins)
 
-    col_a, col_b, col_c = st.columns([1, 1, 1])
-    with col_a:
-        st.session_state[amt_key] = st.number_input(
-            "Bet amount", min_value=10, max_value=coins,
-            value=st.session_state[amt_key], step=10, key=f"num_{match_id}",
+    st.caption("Quick add:")
+    qc1, qc2, qc3, qc4 = st.columns([1, 1, 1, 2])
+    with qc1:
+        if st.button("+10", key=f"qs_{match_id}_10", use_container_width=True):
+            st.session_state[num_key] = min(st.session_state[num_key] + 10, coins)
+            st.rerun()
+    with qc2:
+        if st.button("+50", key=f"qs_{match_id}_50", use_container_width=True):
+            st.session_state[num_key] = min(st.session_state[num_key] + 50, coins)
+            st.rerun()
+    with qc3:
+        if st.button("+100", key=f"qs_{match_id}_100", use_container_width=True):
+            st.session_state[num_key] = min(st.session_state[num_key] + 100, coins)
+            st.rerun()
+    with qc4:
+        amount = st.number_input(
+            "Amount", min_value=10, max_value=coins,
+            step=10, key=num_key,
+            label_visibility="collapsed",
         )
-    with col_b:
-        for sv in [10, 50, 100]:
-            if st.button(f"+{sv}", key=f"qs_{match_id}_{sv}"):
-                st.session_state[amt_key] = min(st.session_state[amt_key] + sv, coins)
-                st.rerun()
-    with col_c:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Confirm Bet  ✓", key=f"confirm_{match_id}", use_container_width=True):
-            try:
-                db.place_bet(st.session_state.user["id"], match_id, choice_map[choice], st.session_state[amt_key])
-                st.success(f"Bet placed! {st.session_state[amt_key]} coins on {choice}")
-                st.session_state[f"bet_expand_{match_id}"] = False
-                st.rerun()
-            except ValueError as e:
-                st.error(str(e))
+
+    if st.button("Confirm Bet  ✓", key=f"confirm_{match_id}", use_container_width=True):
+        try:
+            db.place_bet(st.session_state.user["id"], match_id, choice_map[choice], amount)
+            st.success(f"Bet placed! {amount} coins on {choice}")
+            st.session_state[f"bet_expand_{match_id}"] = False
+            st.rerun()
+        except ValueError as e:
+            st.error(str(e))
     st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -509,34 +517,42 @@ def _render_handicap_bet_slip(m: dict, coins: int, match_id: int):
     )
     side_code = "favorite" if side.startswith("Favorite") else "underdog"
 
-    amt_key = f"hc_amount_{match_id}"
-    if amt_key not in st.session_state:
-        st.session_state[amt_key] = min(50, coins)
+    num_key = f"hc_num_{match_id}"
+    if num_key not in st.session_state:
+        st.session_state[num_key] = min(50, coins)
 
-    col_a, col_b, col_c = st.columns([1, 1, 1])
-    with col_a:
-        st.session_state[amt_key] = st.number_input(
-            "Bet amount", min_value=10, max_value=coins,
-            value=st.session_state[amt_key], step=10, key=f"hc_num_{match_id}",
+    st.caption("Quick add:")
+    qc1, qc2, qc3, qc4 = st.columns([1, 1, 1, 2])
+    with qc1:
+        if st.button("+10", key=f"hc_qs_{match_id}_10", use_container_width=True):
+            st.session_state[num_key] = min(st.session_state[num_key] + 10, coins)
+            st.rerun()
+    with qc2:
+        if st.button("+50", key=f"hc_qs_{match_id}_50", use_container_width=True):
+            st.session_state[num_key] = min(st.session_state[num_key] + 50, coins)
+            st.rerun()
+    with qc3:
+        if st.button("+100", key=f"hc_qs_{match_id}_100", use_container_width=True):
+            st.session_state[num_key] = min(st.session_state[num_key] + 100, coins)
+            st.rerun()
+    with qc4:
+        amount = st.number_input(
+            "Amount", min_value=10, max_value=coins,
+            step=10, key=num_key,
+            label_visibility="collapsed",
         )
-    with col_b:
-        for sv in [10, 50, 100]:
-            if st.button(f"+{sv}", key=f"hc_qs_{match_id}_{sv}"):
-                st.session_state[amt_key] = min(st.session_state[amt_key] + sv, coins)
-                st.rerun()
-    with col_c:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Confirm Bet  ✓", key=f"hc_confirm_{match_id}", use_container_width=True):
-            try:
-                db.place_handicap_bet(
-                    st.session_state.user["id"], match_id, side_code,
-                    st.session_state[amt_key], line, fee,
-                )
-                st.success(f"Handicap bet placed! {st.session_state[amt_key]} coins on {side}")
-                st.session_state[f"bet_expand_{match_id}"] = False
-                st.rerun()
-            except ValueError as e:
-                st.error(str(e))
+
+    if st.button("Confirm Bet  ✓", key=f"hc_confirm_{match_id}", use_container_width=True):
+        try:
+            db.place_handicap_bet(
+                st.session_state.user["id"], match_id, side_code,
+                amount, line, fee,
+            )
+            st.success(f"Handicap bet placed! {amount} coins on {side}")
+            st.session_state[f"bet_expand_{match_id}"] = False
+            st.rerun()
+        except ValueError as e:
+            st.error(str(e))
     st.markdown('</div>', unsafe_allow_html=True)
 
 
