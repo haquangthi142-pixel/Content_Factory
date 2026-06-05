@@ -166,6 +166,16 @@ hr { border-color: var(--border-subtle) !important; margin: 0.5rem 0 !important;
     h1 { font-size: 2.2rem !important; }
     h2 { font-size: 1.6rem !important; }
 }
+
+/* ── Admin Buy Coins select ── */
+[aria-label="Search player by phone"] {
+    background: #000000 !important;
+    color: #ffffff !important;
+    border-color: rgba(255,255,255,0.25) !important;
+}
+[aria-label="Search player by phone"] * {
+    color: #ffffff !important;
+}
 """
 
 STATUS_MAP = {

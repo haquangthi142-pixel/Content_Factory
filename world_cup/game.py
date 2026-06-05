@@ -74,6 +74,38 @@ def calc_handicap_win_amount(bet_amount: int, handicap_line: float, fee_percent:
     return int(net_stake * multiplier)
 
 
+def settle_handicap_bet(handicap_side: str, handicap_line: float,
+                         handicap_favorite: str, score_a: int | None, score_b: int | None,
+                         bet_amount: int, handicap_fee: int) -> tuple[str, int]:
+    """Return (status, payout) for a handicap bet.
+
+    handicap_side: 'favorite' or 'underdog'
+    handicap_favorite: 'A' or 'B' (which team is the favorite)
+    handicap_line: spread (e.g. 0.5, 1.5, 2.5)
+    score_a / score_b: final scores; if None the bet stays Pending.
+    """
+    if score_a is None or score_b is None:
+        return ("Pending", 0)
+
+    if handicap_favorite == "A":
+        fav_score, und_score = score_a, score_b
+    else:
+        fav_score, und_score = score_b, score_a
+
+    # Favorite covers the spread if (fav_score - line) > underdog_score
+    favorite_covers = (fav_score - handicap_line) > und_score
+
+    if handicap_side == "favorite":
+        won = favorite_covers
+    else:
+        won = not favorite_covers
+
+    if won:
+        payout = calc_handicap_win_amount(bet_amount, handicap_line, handicap_fee)
+        return ("Won", payout)
+    return ("Lost", 0)
+
+
 # ---------------------------------------------------------------------------
 # Missions
 # ---------------------------------------------------------------------------

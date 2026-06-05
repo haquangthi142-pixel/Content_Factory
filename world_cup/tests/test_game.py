@@ -117,6 +117,67 @@ def test_calc_handicap_win_amount():
     assert amount == 171
 
 
+# ===========================================================================
+# settle_handicap_bet
+# ===========================================================================
+
+def test_settle_handicap_bet_favorite_covers():
+    # A is favorite, gives 0.5 goals. A wins 2-0 -> covers.
+    status, payout = game.settle_handicap_bet(
+        "favorite", 0.5, "A", score_a=2, score_b=0,
+        bet_amount=100, handicap_fee=5,
+    )
+    assert status == "Won"
+    assert payout == 171  # (100 - 5) * 1.8
+
+
+def test_settle_handicap_bet_favorite_fails_to_cover():
+    # A is favorite, gives 1.5 goals. A wins 1-0 -> doesn't cover.
+    status, payout = game.settle_handicap_bet(
+        "favorite", 1.5, "A", score_a=1, score_b=0,
+        bet_amount=100, handicap_fee=5,
+    )
+    assert status == "Lost"
+    assert payout == 0
+
+
+def test_settle_handicap_bet_underdog_wins():
+    # A is favorite, gives 0.5 goals. B wins 1-0 -> underdog covers.
+    status, payout = game.settle_handicap_bet(
+        "underdog", 0.5, "A", score_a=0, score_b=1,
+        bet_amount=100, handicap_fee=5,
+    )
+    assert status == "Won"
+    assert payout == 171
+
+
+def test_settle_handicap_bet_draw_underdog_covers():
+    # A is favorite, gives 1.5 goals. Draw 1-1 -> underdog covers.
+    status, payout = game.settle_handicap_bet(
+        "underdog", 1.5, "A", score_a=1, score_b=1,
+        bet_amount=100, handicap_fee=5,
+    )
+    assert status == "Won"
+
+
+def test_settle_handicap_bet_no_scores():
+    # No score data -> stays Pending
+    status, payout = game.settle_handicap_bet(
+        "favorite", 0.5, "A", score_a=None, score_b=None,
+        bet_amount=100, handicap_fee=5,
+    )
+    assert status == "Pending"
+    assert payout == 0
+
+
+def test_settle_handicap_bet_favorite_is_B():
+    # B is favorite, gives 0.5 goals. B wins 3-1 -> favorite (B) covers.
+    status, payout = game.settle_handicap_bet(
+        "favorite", 0.5, "B", score_a=1, score_b=3,
+        bet_amount=100, handicap_fee=5,
+    )
+    assert status == "Won"
+
 
 # ===========================================================================
 # missions

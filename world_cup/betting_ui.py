@@ -1,5 +1,6 @@
 """Shared betting-game UI components. Used by app.py (embedded tab) and betting_app.py (standalone)."""
 
+import html
 import streamlit as st
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
@@ -196,22 +197,38 @@ def render_login_screen():
 
         phone = st.text_input("Phone Number", placeholder="+84xxxxxxxxx", key="login_phone")
         name = st.text_input("Full Name", placeholder="Nguyen Van A", key="login_name")
+        password = st.text_input("Password", type="password", placeholder="Min 4 characters", key="login_password")
         st.markdown("<br>", unsafe_allow_html=True)
 
         if st.button("Enter the Game  →", use_container_width=True, key="login_btn"):
-            if phone.strip() and name.strip():
+            if not (phone.strip() and name.strip() and password.strip()):
+                st.warning("Please fill in all fields.")
+            elif len(password.strip()) < 4:
+                st.warning("Password must be at least 4 characters.")
+            else:
                 user = db.get_user_by_phone(phone.strip())
                 if not user:
-                    uid = db.register_user(phone.strip(), name.strip())
+                    # New user: register with password
+                    uid = db.register_user(phone.strip(), name.strip(), password.strip())
                     st.session_state.user = dict(db.get_user(uid))
                     st.rerun()
-                if user["full_name"].strip().lower() != name.strip().lower():
+                elif user["full_name"].strip().lower() != name.strip().lower():
                     st.error(f"This phone number is already registered to **{user['full_name']}**.")
-                else:
+                elif user["password_hash"] is None:
+                    # Existing user without password: set password now
+                    conn = db.get_connection()
+                    conn.execute("UPDATE users SET password_hash = ? WHERE id = ?",
+                                 (db.hash_password(password.strip()), user["id"]))
+                    conn.commit()
+                    conn.close()
+                    st.session_state.user = dict(db.get_user(user["id"]))
+                    st.success("Password set! Welcome back.")
+                    st.rerun()
+                elif db.verify_password(password.strip(), user["password_hash"]):
                     st.session_state.user = dict(user)
                     st.rerun()
-            else:
-                st.warning("Please fill in both fields.")
+                else:
+                    st.error("Wrong password. Try again.")
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -232,7 +249,7 @@ def render_game_header(user_data: dict, coins: int, rank):
             <div class="stat-value">{rank_medal} {rank}</div></div>
         <div class="stat-box" style="border-color:var(--border-active);">
             <div class="stat-label">Player</div>
-            <div class="stat-value" style="font-size:1.1rem;font-family:'Chakra Petch',sans-serif;">{user_data['full_name']}</div>
+            <div class="stat-value" style="font-size:1.1rem;font-family:'Chakra Petch',sans-serif;">{html.escape(user_data['full_name'])}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -366,9 +383,9 @@ def _render_match_fixture(m: dict, utc_dt: datetime, user_id: int, coins: int):
             <div class="time-vn">{time_vn} VN</div>
         </div>
         <div class="fixture-teams">
-            <span class="team-name home">{m['team_a']}</span>
+            <span class="team-name home">{html.escape(m['team_a'])}</span>
             <span class="vs-badge">VS</span>
-            <span class="team-name away">{m['team_b']}</span>
+            <span class="team-name away">{html.escape(m['team_b'])}</span>
         </div>
         <div style="flex-shrink:0;text-align:center;min-width:75px">{status_html}</div>
     """, unsafe_allow_html=True)
@@ -393,7 +410,7 @@ def _render_match_fixture(m: dict, utc_dt: datetime, user_id: int, coins: int):
 
     # Expanded bet slip
     if st.session_state.get(f"bet_expand_{match_id}", False):
-        has_handicap = m["handicap_line"] is not None
+        has_handicap = m["handicap_line"] is not None and m["handicap_favorite"] is not None
         if has_handicap:
             market_key = f"market_{match_id}"
             if market_key not in st.session_state:
@@ -421,6 +438,12 @@ def _render_match_fixture(m: dict, utc_dt: datetime, user_id: int, coins: int):
 
 def _render_bet_slip(m: dict, coins: int, match_id: int):
     st.markdown('<div class="bet-slip">', unsafe_allow_html=True)
+
+    if coins < 10:
+        st.error("Insufficient coins. Minimum bet is 10 coins. Buy more coins or contact admin.")
+        st.markdown('</div>', unsafe_allow_html=True)
+        return
+
     choice = st.radio(
         "Pick outcome:",
         [f"{m['team_a']} Win", "Draw", f"{m['team_b']} Win"],
@@ -431,7 +454,7 @@ def _render_bet_slip(m: dict, coins: int, match_id: int):
 
     amt_key = f"amount_{match_id}"
     if amt_key not in st.session_state:
-        st.session_state[amt_key] = 50
+        st.session_state[amt_key] = min(50, coins)
 
     col_a, col_b, col_c = st.columns([1, 1, 1])
     with col_a:
@@ -450,6 +473,66 @@ def _render_bet_slip(m: dict, coins: int, match_id: int):
             try:
                 db.place_bet(st.session_state.user["id"], match_id, choice_map[choice], st.session_state[amt_key])
                 st.success(f"Bet placed! {st.session_state[amt_key]} coins on {choice}")
+                st.session_state[f"bet_expand_{match_id}"] = False
+                st.rerun()
+            except ValueError as e:
+                st.error(str(e))
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def _render_handicap_bet_slip(m: dict, coins: int, match_id: int):
+    """Handicap betting form: pick favorite/underdog, amount, confirm."""
+    from world_cup.game import get_handicap_payout
+
+    line = m["handicap_line"]
+    fav_team = m["team_a"] if m["handicap_favorite"] == "A" else m["team_b"]
+    multiplier = get_handicap_payout(line)
+    fee = m.get("handicap_fee") or 5
+
+    st.markdown('<div class="bet-slip">', unsafe_allow_html=True)
+
+    if coins < 10:
+        st.error("Insufficient coins. Minimum bet is 10 coins. Buy more coins or contact admin.")
+        st.markdown('</div>', unsafe_allow_html=True)
+        return
+
+    st.caption(
+        f"Handicap {line} · Favorite: **{fav_team}** gives {line} goals · "
+        f"Payout: **{multiplier}×** · Fee: {fee}% on stake"
+    )
+
+    side = st.radio(
+        "Pick side:",
+        [f"Favorite ({fav_team} −{line})", f"Underdog (opponent +{line})"],
+        key=f"hc_side_{match_id}",
+        horizontal=True,
+    )
+    side_code = "favorite" if side.startswith("Favorite") else "underdog"
+
+    amt_key = f"hc_amount_{match_id}"
+    if amt_key not in st.session_state:
+        st.session_state[amt_key] = min(50, coins)
+
+    col_a, col_b, col_c = st.columns([1, 1, 1])
+    with col_a:
+        st.session_state[amt_key] = st.number_input(
+            "Bet amount", min_value=10, max_value=coins,
+            value=st.session_state[amt_key], step=10, key=f"hc_num_{match_id}",
+        )
+    with col_b:
+        for sv in [10, 50, 100]:
+            if st.button(f"+{sv}", key=f"hc_qs_{match_id}_{sv}"):
+                st.session_state[amt_key] = min(st.session_state[amt_key] + sv, coins)
+                st.rerun()
+    with col_c:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Confirm Bet  ✓", key=f"hc_confirm_{match_id}", use_container_width=True):
+            try:
+                db.place_handicap_bet(
+                    st.session_state.user["id"], match_id, side_code,
+                    st.session_state[amt_key], line, fee,
+                )
+                st.success(f"Handicap bet placed! {st.session_state[amt_key]} coins on {side}")
                 st.session_state[f"bet_expand_{match_id}"] = False
                 st.rerun()
             except ValueError as e:
@@ -479,14 +562,20 @@ def render_my_bets_tab(user_id: int):
     sc = {"Pending": "rgba(243,156,18,0.85)", "Won": "var(--green-ok)",
           "Lost": "var(--red-live)", "Refunded": "#95a5a6"}
     for b in my_bets:
-        cd = {"A": f"{b['team_a']} Win", "B": f"{b['team_b']} Win", "DRAW": "Draw"}
+        if b.get("market") == "handicap":
+            side = "Favorite" if b.get("handicap_side") == "favorite" else "Underdog"
+            hl = b.get("handicap_line")
+            choice_str = f"Handicap · {side} @ {hl if hl is not None else '?'}"
+        else:
+            cd = {"A": f"{b['team_a']} Win", "B": f"{b['team_b']} Win", "DRAW": "Draw"}
+            choice_str = cd.get(b['bet_choice'], b['bet_choice'])
         status_color = sc.get(b["status"], "gray")
         st.markdown(f"""
         <div class="history-row">
             <div>
-                <div class="hist-teams">{b['team_a']}  vs  {b['team_b']}</div>
+                <div class="hist-teams">{html.escape(b['team_a'])}  vs  {html.escape(b['team_b'])}</div>
                 <div class="hist-detail">
-                    Choice: {cd.get(b['bet_choice'], b['bet_choice'])} &nbsp;·&nbsp;
+                    Choice: {choice_str} &nbsp;·&nbsp;
                     <span class="coin-amount">{b['bet_amount']} coins</span>
                 </div>
             </div>
@@ -521,7 +610,7 @@ def render_leaderboard_tab():
                 st.markdown(f"""
                 <div class="podium-bar {tier}">
                     <div class="podium-medal">{medal}</div>
-                    <div class="podium-name">{row['full_name']}</div>
+                    <div class="podium-name">{html.escape(row['full_name'])}</div>
                     <div class="podium-coins">{row['current_coins']:,} coins</div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -535,7 +624,7 @@ def render_leaderboard_tab():
         st.markdown(f"""
         <div class="leaderboard-row" style="{extra_style}">
             <span class="lb-rank" style="{rank_style}">{i + 1}</span>
-            <span class="lb-name" style="{name_style}">{row['full_name']}</span>
+            <span class="lb-name" style="{name_style}">{html.escape(row['full_name'])}</span>
             <span class="lb-coins">{row['current_coins']:,}</span>
         </div>
         """, unsafe_allow_html=True)

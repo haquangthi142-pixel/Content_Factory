@@ -1,8 +1,30 @@
-import sqlite3
+import hashlib
 import os
+import secrets
+import sqlite3
 from datetime import datetime, timezone
 
 from world_cup import game
+
+# ---------------------------------------------------------------------------
+# Password hashing (stdlib only)
+# ---------------------------------------------------------------------------
+
+def hash_password(password: str) -> str:
+    """Hash a password with PBKDF2-SHA256 + salt. Returns 'salt$hash'."""
+    salt = secrets.token_hex(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 600_000)
+    return f"{salt}${dk.hex()}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    """Verify a password against a stored 'salt$hash' string."""
+    try:
+        salt, stored_hash = stored.split("$")
+        dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 600_000)
+        return secrets.compare_digest(dk.hex(), stored_hash)
+    except (ValueError, AttributeError):
+        return False
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "game.db")
 
@@ -77,6 +99,7 @@ def init_db():
         ("market", "ALTER TABLE bets ADD COLUMN market TEXT DEFAULT '1X2'"),
         ("handicap_line_bet", "ALTER TABLE bets ADD COLUMN handicap_line REAL"),
         ("handicap_side", "ALTER TABLE bets ADD COLUMN handicap_side TEXT"),
+        ("password_hash", "ALTER TABLE users ADD COLUMN password_hash TEXT"),
     ]:
         try:
             conn.execute(_ddl)
@@ -90,12 +113,13 @@ def init_db():
 # Users
 # ---------------------------------------------------------------------------
 
-def register_user(phone: str, full_name: str) -> int:
+def register_user(phone: str, full_name: str, password: str | None = None) -> int:
     conn = get_connection()
     try:
+        pw_hash = hash_password(password) if password else None
         cur = conn.execute(
-            "INSERT INTO users (phone, full_name, current_coins) VALUES (?, ?, 10)",
-            (phone, full_name),
+            "INSERT INTO users (phone, full_name, current_coins, password_hash) VALUES (?, ?, 10, ?)",
+            (phone, full_name, pw_hash),
         )
         user_id = cur.lastrowid
         conn.execute(
@@ -288,10 +312,38 @@ def update_match_result(match_id: int, result: str):
 
 
 # ---------------------------------------------------------------------------
+# Rate limiting
+# ---------------------------------------------------------------------------
+
+_bet_timestamps: dict[int, list[float]] = {}  # user_id -> list of recent bet timestamps
+_MAX_BETS_PER_MINUTE = 10
+
+
+def _reset_rate_limits():
+    """Clear rate-limit state. For tests only."""
+    _bet_timestamps.clear()
+
+
+def _check_rate_limit(user_id: int) -> bool:
+    """Return True if user is within rate limit, False if exceeded."""
+    now = datetime.now(timezone.utc).timestamp()
+    stamps = _bet_timestamps.get(user_id, [])
+    # Purge old entries
+    stamps = [t for t in stamps if now - t < 60]
+    _bet_timestamps[user_id] = stamps
+    if len(stamps) >= _MAX_BETS_PER_MINUTE:
+        return False
+    stamps.append(now)
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Bets
 # ---------------------------------------------------------------------------
 
 def place_bet(user_id: int, match_id: int, bet_choice: str, bet_amount: int) -> int:
+    if not _check_rate_limit(user_id):
+        raise ValueError("Too many bets. Slow down — max 10 bets per minute.")
     conn = get_connection()
     try:
         # Validate bet amount
@@ -304,7 +356,7 @@ def place_bet(user_id: int, match_id: int, bet_choice: str, bet_amount: int) -> 
         if not coins:
             raise ValueError("User not found")
         if coins["current_coins"] < bet_amount:
-            raise ValueError(f"Insufficient coins. You have {coins['current_coins']}. Contact admin to purchase more.")
+            raise ValueError(f"Insufficient coins. You have {coins['current_coins']}. Buy more coins or contact admin.")
 
         # Check match exists and is not finished
         match = conn.execute("SELECT * FROM matches WHERE match_id = ?", (match_id,)).fetchone()
@@ -340,6 +392,8 @@ calc_handicap_win_amount = game.calc_handicap_win_amount
 def place_handicap_bet(user_id: int, match_id: int, handicap_side: str,
                        bet_amount: int, handicap_line: float,
                        handicap_fee: int) -> int:
+    if not _check_rate_limit(user_id):
+        raise ValueError("Too many bets. Slow down — max 10 bets per minute.")
     conn = get_connection()
     try:
         ok, err = game.validate_bet_amount(bet_amount)
@@ -352,7 +406,7 @@ def place_handicap_bet(user_id: int, match_id: int, handicap_side: str,
         if not coins:
             raise ValueError("User not found")
         if coins["current_coins"] < bet_amount:
-            raise ValueError(f"Insufficient coins. You have {coins['current_coins']}. Contact admin to purchase more.")
+            raise ValueError(f"Insufficient coins. You have {coins['current_coins']}. Buy more coins or contact admin.")
 
         match = conn.execute(
             "SELECT * FROM matches WHERE match_id = ?", (match_id,)
@@ -392,12 +446,30 @@ def settle_match_bets(match_id: int, result: str):
             "UPDATE matches SET result = ?, status = 'Finished' WHERE match_id = ?",
             (result, match_id),
         )
+        # Re-fetch match for score data (needed for handicap settlement)
+        match = conn.execute(
+            "SELECT * FROM matches WHERE match_id = ?", (match_id,)
+        ).fetchone()
+
         pending = conn.execute(
             "SELECT * FROM bets WHERE match_id = ? AND status = 'Pending'", (match_id,)
         ).fetchall()
 
         for bet in pending:
-            status, payout = game.settle_bet(bet["bet_choice"], bet["bet_amount"], result)
+            if bet["market"] == "handicap":
+                # Skip if missing data needed for settlement
+                if match["handicap_favorite"] is None or match["score_a"] is None or match["score_b"] is None:
+                    continue
+                status, payout = game.settle_handicap_bet(
+                    bet["handicap_side"], bet["handicap_line"],
+                    match["handicap_favorite"], match["score_a"], match["score_b"],
+                    bet["bet_amount"], match["handicap_fee"] or 5,
+                )
+                if status == "Pending":
+                    continue
+            else:
+                status, payout = game.settle_bet(bet["bet_choice"], bet["bet_amount"], result)
+
             if status == "Won":
                 conn.execute(
                     "UPDATE bets SET status = 'Won', settled_at = datetime('now') WHERE bet_id = ?",
@@ -511,7 +583,9 @@ def _dict_rows(rows):
 def admin_get_all_users():
     conn = get_connection()
     try:
-        return _dict_rows(conn.execute("SELECT * FROM users ORDER BY id").fetchall())
+        return _dict_rows(conn.execute(
+            "SELECT id, phone, full_name, current_coins, created_at FROM users ORDER BY id"
+        ).fetchall())
     finally:
         conn.close()
 

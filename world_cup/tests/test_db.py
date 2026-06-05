@@ -19,6 +19,7 @@ def fresh_db(monkeypatch):
     # Rebind get_connection so every call uses the same temp file
     monkeypatch.setattr(db_module, "get_connection", lambda: _test_conn(path))
     db_module.init_db()
+    db_module._reset_rate_limits()
     yield
     # Teardown
     os.unlink(path)

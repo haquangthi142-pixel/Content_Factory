@@ -3,6 +3,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
 import requests
+import time
 from datetime import datetime
 
 from world_cup import api
@@ -68,6 +69,17 @@ def _render_betting_game():
         st.session_state._matches_synced = True
 
     user = st.session_state.user
+
+    # Session timeout: 60 min idle -> logout
+    now = time.time()
+    if st.session_state.get("_last_activity") and (now - st.session_state["_last_activity"] > 3600):
+        st.session_state.betting_user = None
+        st.session_state.user = None
+        st.session_state._last_activity = None
+        st.warning("Session expired due to inactivity. Please log in again.")
+        st.rerun()
+    st.session_state["_last_activity"] = now
+
     user_data = db.get_user(user["id"])
     coins = user_data["current_coins"]
     lb = db.get_leaderboard()
@@ -75,12 +87,32 @@ def _render_betting_game():
 
     betting_ui.render_game_header(user_data, coins, rank)
 
-    _, btn_col = st.columns([6, 1])
-    with btn_col:
+    btn_col1, btn_col2 = st.columns([6, 1])
+    with btn_col2:
         if st.button("←  Logout", key="bet_logout"):
             st.session_state.betting_user = None
             st.session_state.user = None
             st.rerun()
+    with btn_col1:
+        with st.expander("💰  Buy Coins", expanded=False):
+            c1, c2 = st.columns(2)
+            with c1:
+                vnd = st.number_input(
+                    "VND Amount", min_value=100000, value=100000, step=100000,
+                    key="buy_coins_vnd",
+                    help="1,000 VND = 1 coin. Minimum 100,000 VND.",
+                )
+                est_coins = vnd // 1000
+                st.caption(f"Adds **{est_coins}** coins to your wallet")
+            with c2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("Purchase Coins  ✓", key="buy_coins_player", use_container_width=True):
+                    try:
+                        credited = db.purchase_coins(user["id"], vnd)
+                        st.success(f"+{credited} coins! Wallet updated.")
+                        st.rerun()
+                    except ValueError as e:
+                        st.error(str(e))
 
     st.markdown("---")
 
