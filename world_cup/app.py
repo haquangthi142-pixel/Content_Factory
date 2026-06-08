@@ -22,11 +22,6 @@ from world_cup.components import (
 
 db.init_db()
 
-# ── Admin access via ?admin query param ──────────────────────────────────────
-if st.query_params.get("admin") is not None:
-    admin_panel.render_admin()
-    st.stop()
-
 if "betting_user" not in st.session_state:
     st.session_state.betting_user = None
 if "user" not in st.session_state:
@@ -271,13 +266,9 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 st.sidebar.markdown("---")
-is_admin = st.session_state.get("admin_authenticated", False)
-nav_items = ["📊 Overview", "🎮 Betting Game"]
-if is_admin:
-    nav_items = ["📊 Overview", "📅 Matches", "📋 Group Standings", "🌍 Teams", "🎮 Betting Game"]
 view = st.sidebar.radio(
     "Navigation",
-    nav_items,
+    ["📊 Overview", "📅 Matches", "📋 Group Standings", "🌍 Teams", "🎮 Betting Game", "🔒 Admin"],
     label_visibility="collapsed",
 )
 
@@ -496,6 +487,9 @@ try:
 
     elif view == "🎮 Betting Game":
         _render_betting_game()
+
+    elif view == "🔒 Admin":
+        admin_panel.render_admin()
 
 except requests.exceptions.RequestException as e:
     st.error(f"API connection error: {e}")

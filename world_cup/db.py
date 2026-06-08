@@ -1,18 +1,10 @@
 import hashlib
+import os
 import secrets
 import sqlite3
 from datetime import datetime, timezone
 
 from world_cup import game
-from world_cup.turso import get_connection, DB_PATH
-
-# "column already exists" raises different exceptions on SQLite vs Turso
-_MIGRATION_SAFE_ERRORS = (sqlite3.OperationalError,)
-try:
-    from libsql_client import LibsqlError
-    _MIGRATION_SAFE_ERRORS = (sqlite3.OperationalError, LibsqlError)
-except ImportError:
-    pass
 
 # ---------------------------------------------------------------------------
 # Password hashing (stdlib only)
@@ -34,6 +26,14 @@ def verify_password(password: str, stored: str) -> bool:
     except (ValueError, AttributeError):
         return False
 
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "game.db")
+
+
+def get_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 def init_db():
@@ -113,7 +113,7 @@ def init_db():
     ]:
         try:
             conn.execute(_ddl)
-        except _MIGRATION_SAFE_ERRORS:
+        except sqlite3.OperationalError:
             pass  # column already exists
     conn.commit()
     conn.close()
