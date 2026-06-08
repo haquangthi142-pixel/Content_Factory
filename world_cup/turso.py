@@ -86,8 +86,12 @@ class TursoConnection:
     def __init__(self):
         from libsql_client import create_client_sync
 
+        # Convert libsql:// → https:// to force HTTP transport.
+        # Streamlit Cloud blocks WebSocket (Hrana) outbound connections,
+        # but HTTP to Turso works fine.
+        url = TURSO_URL.replace("libsql://", "https://", 1)
         self._client = create_client_sync(
-            url=TURSO_URL,
+            url=url,
             auth_token=TURSO_AUTH_TOKEN,
         )
         self._tx = None
