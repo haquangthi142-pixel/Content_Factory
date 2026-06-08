@@ -1,5 +1,6 @@
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add repo root to path (pages/admin.py is 3 dirs deep: pages/ → world_cup/ → repo/)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import streamlit as st
 from world_cup import db
