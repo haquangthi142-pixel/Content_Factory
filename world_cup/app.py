@@ -9,6 +9,7 @@ from datetime import datetime
 from world_cup import api
 from world_cup import db
 from world_cup import betting_ui
+from world_cup import admin as admin_panel
 from world_cup.components import (
     GLOBAL_CSS,
     match_card,
@@ -20,6 +21,11 @@ from world_cup.components import (
 # This keep as defense-in-depth in case api.py is reloaded or st.secrets changes.
 
 db.init_db()
+
+# ── Admin access via ?admin query param ──────────────────────────────────────
+if st.query_params.get("admin") is not None:
+    admin_panel.render_admin()
+    st.stop()
 
 if "betting_user" not in st.session_state:
     st.session_state.betting_user = None
