@@ -104,8 +104,8 @@ def init_db():
     ]:
         try:
             conn.execute(_ddl)
-        except sqlite3.OperationalError:
-            pass  # column already exists
+        except Exception:
+            pass  # column already exists (SQLite: OperationalError; Turso: LibsqlError)
     conn.commit()
     conn.close()
 

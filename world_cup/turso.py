@@ -95,21 +95,22 @@ class TursoConnection:
 
     def execute(self, sql, params=None):
         args = list(params) if params else None
-        if self._tx is not None:
+        # DDL statements must run outside a transaction
+        upper = sql.lstrip().upper()
+        is_ddl = upper.startswith(("ALTER ", "CREATE ", "DROP "))
+        if self._tx is not None and not is_ddl:
             result = self._tx.execute(sql, args)
         else:
             result = self._client.execute(sql, args)
         return _TursoCursor(result)
 
     def executescript(self, sql):
-        """Run multiple statements (for DDL / schema creation)."""
+        """Run DDL statements — always outside a transaction (Turso rejects
+        schema changes inside transactions)."""
         stmts = [s.strip() for s in sql.split(";") if s.strip()]
         for stmt in stmts:
-            if self._tx is not None:
-                self._tx.execute(stmt)
-            else:
-                self._client.execute(stmt)
-        return _TursoCursor()  # properly-initialized empty cursor
+            self._client.execute(stmt)
+        return _TursoCursor()
 
     def begin(self):
         """Start a new transaction (called automatically on first write when
