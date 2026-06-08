@@ -8,7 +8,6 @@ from datetime import datetime
 
 from world_cup import api
 from world_cup import db
-from world_cup import admin as admin_panel
 from world_cup import betting_ui
 from world_cup.components import (
     GLOBAL_CSS,
@@ -17,10 +16,8 @@ from world_cup.components import (
     teams_grid,
 )
 
-try:
-    api.API_KEY = st.secrets["API_FOOTBALL_KEY"]
-except Exception:
-    pass
+# api.py now handles st.secrets with .env fallback at module level.
+# This keep as defense-in-depth in case api.py is reloaded or st.secrets changes.
 
 db.init_db()
 
@@ -48,6 +45,117 @@ def fetch_teams():
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_group_standings():
     return api.fetch_group_standings()
+
+
+def _render_overview_quick_bet(api_match):
+    """Show a compact 'Bet' button + inline bet slip in the Overview tab.
+
+    Only appears when the user is logged in and the match exists in the DB.
+    """
+    user = st.session_state.get("user")
+    if user is None:
+        return
+
+    db_match = db.get_match(api_match["id"])
+    if db_match is None or db_match["status"] == "Finished":
+        return
+
+    user_data = db.get_user(user["id"])
+    if user_data is None:
+        return
+    coins = user_data["current_coins"]
+    match_id = db_match["match_id"]
+
+    ek = f"overview_bet_{match_id}"
+    if ek not in st.session_state:
+        st.session_state[ek] = False
+
+    # Toggle button — compact, right-aligned
+    _, btn_col = st.columns([5, 1])
+    with btn_col:
+        label = "✕ Close" if st.session_state[ek] else "💰 Bet"
+        if st.button(label, key=f"ov_btn_{match_id}", use_container_width=True):
+            st.session_state[ek] = not st.session_state[ek]
+            st.rerun()
+
+    if not st.session_state[ek]:
+        return
+
+    # Expanded bet slip
+    with st.container():
+        st.markdown("---")
+        st.caption(f"Quick Bet — **{db_match['team_a']}** vs **{db_match['team_b']}**")
+
+        if coins < 10:
+            st.error("Insufficient coins. Minimum bet is 10 coins.")
+            return
+
+        choice = st.radio(
+            "Pick outcome:",
+            [f"{db_match['team_a']} Win", "Draw", f"{db_match['team_b']} Win"],
+            key=f"ov_choice_{match_id}",
+            horizontal=True,
+        )
+        choice_map = {
+            f"{db_match['team_a']} Win": "A",
+            "Draw": "DRAW",
+            f"{db_match['team_b']} Win": "B",
+        }
+
+        num_key = f"ov_num_{match_id}"
+        if num_key not in st.session_state:
+            st.session_state[num_key] = min(50, coins)
+
+        # Quick-add + amount
+        qc1, qc2, qc3, qc4 = st.columns([1, 1, 1, 2])
+        with qc1:
+            if st.button("+10", key=f"ov_qs_{match_id}_10"):
+                st.session_state[num_key] = min(st.session_state[num_key] + 10, coins)
+                st.rerun()
+        with qc2:
+            if st.button("+50", key=f"ov_qs_{match_id}_50"):
+                st.session_state[num_key] = min(st.session_state[num_key] + 50, coins)
+                st.rerun()
+        with qc3:
+            if st.button("+100", key=f"ov_qs_{match_id}_100"):
+                st.session_state[num_key] = min(st.session_state[num_key] + 100, coins)
+                st.rerun()
+        with qc4:
+            amount = st.number_input(
+                "Amount", min_value=10, max_value=coins,
+                step=10, key=num_key, label_visibility="collapsed",
+            )
+
+        if st.button("Confirm Bet  ✓", key=f"ov_confirm_{match_id}", use_container_width=True):
+            try:
+                db.place_bet(user["id"], match_id, choice_map[choice], amount)
+                st.success(f"Bet placed! {amount} coins on {choice}")
+                st.session_state[ek] = False
+                st.rerun()
+            except ValueError as e:
+                st.error(str(e))
+
+
+@st.dialog("Confirm Purchase Request", width="small")
+def _purchase_confirm_dialog(user_id: int, vnd: int, est_coins: int):
+    """Modal popup — player confirms a coin purchase request before sending."""
+    st.markdown(f"### 🪙 {est_coins} coins")
+    st.caption(f"Amount: **{vnd:,} VND** &nbsp;|&nbsp; Rate: 1,000 VND = 1 coin")
+    st.markdown("---")
+    st.caption("An admin will review and approve your request.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("✓  Confirm", use_container_width=True, key="dialog_confirm"):
+            try:
+                req_id = db.request_purchase(user_id, vnd)
+                st.session_state._purchase_success = f"Request #{req_id} sent! Awaiting admin approval."
+                st.rerun()
+            except ValueError as e:
+                st.error(str(e))
+    with col2:
+        if st.button("✕  Cancel", use_container_width=True, key="dialog_cancel"):
+            st.rerun()
 
 
 def _render_betting_game():
@@ -81,15 +189,23 @@ def _render_betting_game():
     st.session_state["_last_activity"] = now
 
     user_data = db.get_user(user["id"])
+    if user_data is None:
+        st.session_state.betting_user = None
+        st.session_state.user = None
+        st.warning("Your account has been removed. Please re-register.")
+        st.rerun()
+    # Keep session state in sync with DB (admin may have credited coins, etc.)
+    st.session_state.user = dict(user_data)
     coins = user_data["current_coins"]
     lb = db.get_leaderboard()
     rank = next((i + 1 for i, r in enumerate(lb) if r["id"] == user["id"]), "?")
 
-    betting_ui.render_game_header(user_data, coins, rank)
-
-    _, btn_col = st.columns([6, 1])
-    with btn_col:
-        if st.button("←  Logout", key="bet_logout"):
+    col_header, col_logout = st.columns([9, 1])
+    with col_header:
+        betting_ui.render_game_header(user_data, coins, rank)
+    with col_logout:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("←  Exit", key="bet_logout", use_container_width=True):
             st.session_state.betting_user = None
             st.session_state.user = None
             st.rerun()
@@ -149,9 +265,13 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 st.sidebar.markdown("---")
+is_admin = st.session_state.get("admin_authenticated", False)
+nav_items = ["📊 Overview", "🎮 Betting Game"]
+if is_admin:
+    nav_items = ["📊 Overview", "📅 Matches", "📋 Group Standings", "🌍 Teams", "🎮 Betting Game"]
 view = st.sidebar.radio(
     "Navigation",
-    ["📊 Overview", "📅 Matches", "📋 Group Standings", "🌍 Teams", "🎮 Betting Game", "🔒 Admin"],
+    nav_items,
     label_visibility="collapsed",
 )
 
@@ -164,6 +284,14 @@ if st.session_state.get("user") is not None:
     )
     user = st.session_state.user
     user_data = db.get_user(user["id"])
+    if user_data is None:
+        # User was deleted by admin — clear session
+        st.session_state.betting_user = None
+        st.session_state.user = None
+        st.sidebar.warning("Your account has been removed. Please re-register.")
+        st.stop()
+    # Keep session state in sync with DB
+    st.session_state.user = dict(user_data)
     coins = user_data["current_coins"]
     st.sidebar.caption(f"Balance: **{coins} coins**")
     vnd = st.sidebar.number_input(
@@ -174,29 +302,14 @@ if st.session_state.get("user") is not None:
     est = vnd // 1000
     st.sidebar.caption(f"→ **{est} coins** ({vnd:,} VND)")
 
-    # Confirmation flow
-    if st.session_state.get("_confirm_buy"):
-        st.sidebar.warning(f"Confirm: send {est} coins request for **{vnd:,} VND**?")
-        cc1, cc2 = st.sidebar.columns(2)
-        with cc1:
-            if st.button("Yes ✓", key="buy_confirm_yes", use_container_width=True):
-                try:
-                    req_id = db.request_purchase(user["id"], vnd)
-                    st.sidebar.success(f"Request #{req_id} sent!")
-                    # Clear form
-                    for k in ["_confirm_buy", "buy_coins_sidebar_vnd"]:
-                        st.session_state.pop(k, None)
-                    st.rerun()
-                except ValueError as e:
-                    st.sidebar.error(str(e))
-        with cc2:
-            if st.button("No ✕", key="buy_confirm_no", use_container_width=True):
-                st.session_state._confirm_buy = False
-                st.rerun()
-    else:
-        if st.sidebar.button("Send Request  ✓", key="buy_coins_sidebar_btn", use_container_width=True):
-            st.session_state._confirm_buy = True
-            st.rerun()
+    if st.sidebar.button("Send Request  ✓", key="buy_coins_sidebar_btn", use_container_width=True):
+        _purchase_confirm_dialog(user["id"], vnd, est)
+
+    if st.session_state.get("_purchase_success"):
+        st.sidebar.success(st.session_state._purchase_success)
+        st.session_state.pop("_purchase_success")
+        st.session_state.pop("buy_coins_sidebar_vnd", None)
+        st.rerun()
 
 try:
     if view == "📊 Overview":
@@ -245,6 +358,7 @@ try:
             st.caption(f"Showing {start + 1}–{min(end, total)} of {total} matches")
             for m in upcoming[start:end]:
                 match_card(m)
+                _render_overview_quick_bet(m)
 
             if total_pages > 1:
                 c1, c2, c3 = st.columns([1, 2, 1])
@@ -376,9 +490,6 @@ try:
 
     elif view == "🎮 Betting Game":
         _render_betting_game()
-
-    elif view == "🔒 Admin":
-        admin_panel.render_admin()
 
 except requests.exceptions.RequestException as e:
     st.error(f"API connection error: {e}")

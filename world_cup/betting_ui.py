@@ -33,20 +33,22 @@ BETTING_CSS = """
 .login-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
     background: radial-gradient(ellipse at 50% 0%, rgba(240,199,94,0.08) 0%, transparent 65%); pointer-events: none; }
 
-.header-bar { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;
+.header-bar { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
     background: var(--bg-surface); border: 1px solid var(--border-subtle);
-    border-radius: 18px; padding: 1.5rem 1.75rem; margin-bottom: 1.25rem;
-    box-shadow: var(--shadow-card); position: relative; }
-.header-bar::after { content: ''; position: absolute; bottom: 0; left: 2.5rem; right: 2.5rem;
-    height: 1px; background: linear-gradient(90deg, transparent, var(--border-active), transparent); }
-.header-bar .brand { font-family: 'Bebas Neue', sans-serif; font-size: 2.4rem;
-    letter-spacing: 0.06em; color: var(--text-primary); margin-right: auto; }
-.header-bar .stat-box { text-align: center; min-width: 110px; padding: 0.5rem 1.2rem;
-    background: rgba(0,0,0,0.22); border-radius: 8px; border: 1px solid var(--border-faint); }
-.header-bar .stat-label { font-family: 'Bebas Neue', sans-serif; font-size: 0.8rem;
-    letter-spacing: 0.1em; color: var(--gold-bright); text-transform: uppercase; }
-.header-bar .stat-value { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem;
-    color: var(--text-primary); line-height: 1; }
+    border-radius: 12px; padding: 1rem 1.5rem; margin-bottom: 1.25rem; }
+.header-bar table { border-collapse: collapse; width: auto; }
+.header-bar table th { font-family: 'Chakra Petch', sans-serif; font-size: 0.7rem;
+    font-weight: 500; letter-spacing: 0.08em; color: var(--text-muted);
+    text-transform: uppercase; padding: 2px 1.5rem 4px 0; text-align: left; }
+.header-bar table td { font-family: 'JetBrains Mono', monospace; font-size: 1.2rem;
+    font-weight: 600; color: var(--text-primary); padding: 0 1.5rem 0 0;
+    white-space: nowrap; }
+.header-bar table td.name { font-family: 'Chakra Petch', sans-serif; font-size: 1rem;
+    color: var(--gold-bright); }
+.header-bar table td.rank { font-size: 1rem; }
+.header-bar .brand { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem;
+    letter-spacing: 0.06em; color: var(--text-primary); margin-right: auto;
+    border-right: 1px solid var(--border-subtle); padding-right: 1.5rem; }
 
 .date-header { display: flex; align-items: center; gap: 1rem; margin: 1.5rem 0 0.75rem 0; padding: 0.5rem 0; }
 .date-header .line { flex: 1; height: 1px;
@@ -147,10 +149,10 @@ BETTING_CSS = """
 .coin-amount { font-family: 'JetBrains Mono', monospace !important; font-weight: 500; }
 
 @media (max-width: 640px) {
-    .header-bar { flex-direction: column; padding: 1.2rem; gap: 0.6rem; }
-    .header-bar .brand { margin-right: 0; font-size: 1.8rem; }
-    .header-bar .stat-box { min-width: 80px; }
-    .header-bar .stat-value { font-size: 1.4rem; }
+    .header-bar { flex-direction: column; padding: 0.8rem; gap: 0.5rem; }
+    .header-bar .brand { margin-right: 0; font-size: 1.4rem; border-right: none; padding-right: 0; }
+    .header-bar table th { padding: 2px 0.8rem 2px 0; font-size: 0.65rem; }
+    .header-bar table td { padding: 0 0.8rem 0 0; font-size: 1rem; }
     .podium-bar.gold { height: 110px; }
     .podium-bar.silver { height: 85px; }
     .podium-bar.bronze { height: 65px; }
@@ -206,6 +208,8 @@ def render_login_screen():
                 st.warning("Please fill in all fields.")
             elif len(password.strip()) < 4:
                 st.warning("Password must be at least 4 characters.")
+            elif not db.check_login_rate_limit(phone.strip()):
+                st.error("Too many failed attempts. Try again in a minute.")
             else:
                 user = db.get_user_by_phone(phone.strip())
                 if not user:
@@ -214,14 +218,17 @@ def render_login_screen():
                     st.session_state.user = dict(db.get_user(uid))
                     st.rerun()
                 elif user["full_name"].strip().lower() != name.strip().lower():
+                    db.record_failed_login(phone.strip())
                     st.error(f"This phone number is already registered to **{user['full_name']}**.")
                 elif user["password_hash"] is None:
                     # Existing user without password: set password now
                     conn = db.get_connection()
-                    conn.execute("UPDATE users SET password_hash = ? WHERE id = ?",
-                                 (db.hash_password(password.strip()), user["id"]))
-                    conn.commit()
-                    conn.close()
+                    try:
+                        conn.execute("UPDATE users SET password_hash = ? WHERE id = ?",
+                                     (db.hash_password(password.strip()), user["id"]))
+                        conn.commit()
+                    finally:
+                        conn.close()
                     st.session_state.user = dict(db.get_user(user["id"]))
                     st.success("Password set! Welcome back.")
                     st.rerun()
@@ -229,6 +236,7 @@ def render_login_screen():
                     st.session_state.user = dict(user)
                     st.rerun()
                 else:
+                    db.record_failed_login(phone.strip())
                     st.error("Wrong password. Try again.")
 
         st.markdown("</div>", unsafe_allow_html=True)
@@ -241,17 +249,22 @@ def render_login_screen():
 def render_game_header(user_data: dict, coins: int, rank):
     _inject_css()
     rank_medal = "🥇" if rank == 1 else ("🥈" if rank == 2 else ("🥉" if rank == 3 else "#"))
+    rank_text = "#1" if rank == 1 else (f"#{rank}" if rank != "?" else "—")
     st.markdown(f"""
     <div class="header-bar">
-        <span class="brand">Betting Game</span>
-        <div class="stat-box"><div class="stat-label">Wallet</div>
-            <div class="stat-value coin-amount">{coins:,}</div></div>
-        <div class="stat-box"><div class="stat-label">Rank</div>
-            <div class="stat-value">{rank_medal} {rank}</div></div>
-        <div class="stat-box" style="border-color:var(--border-active);">
-            <div class="stat-label">Player</div>
-            <div class="stat-value" style="font-size:1.1rem;font-family:'Chakra Petch',sans-serif;">{html.escape(user_data['full_name'])}</div>
-        </div>
+        <span class="brand">🏆 Betting Game</span>
+        <table>
+            <tr>
+                <th>Wallet</th>
+                <th>Rank</th>
+                <th>Player</th>
+            </tr>
+            <tr>
+                <td>{coins:,}</td>
+                <td class="rank">{rank_medal} {rank_text}</td>
+                <td class="name">{html.escape(user_data['full_name'])}</td>
+            </tr>
+        </table>
     </div>
     """, unsafe_allow_html=True)
 
@@ -260,40 +273,70 @@ def render_game_header(user_data: dict, coins: int, rank):
 # Place Bets
 # ---------------------------------------------------------------------------
 
+_PAGE_SIZE = 5  # matches per page
+
+
 def render_place_bets_tab(user_id: int, coins: int):
     c1, c2 = st.columns([3, 1])
     with c1:
         st.subheader("Upcoming & Live Matches")
     with c2:
         if st.button("🔄  Sync Matches", use_container_width=True, key="sync_btn"):
-            with st.spinner("Syncing latest fixtures..."):
-                n = db.sync_matches_from_api()
-            st.success(f"Synced {n} matches")
-            st.rerun()
+            if not db.check_sync_rate_limit(user_id):
+                st.warning("Please wait 30 seconds between syncs.")
+            else:
+                with st.spinner("Syncing latest fixtures..."):
+                    n = db.sync_matches_from_api()
+                st.success(f"Synced {n} matches")
+                st.rerun()
 
     st.info("💰  **Payout:** 2× your bet on correct outcome (5% fee deducted). Bets must be in multiples of 10 coins.")
 
     conn = db.get_connection()
-    matches = conn.execute(
-        "SELECT * FROM matches WHERE status != 'Finished' ORDER BY match_time LIMIT 50"
+    all_matches = conn.execute(
+        "SELECT * FROM matches WHERE status != 'Finished' ORDER BY match_time"
     ).fetchall()
     conn.close()
 
-    if not matches:
+    if not all_matches:
         st.info("No upcoming matches yet. Click 'Sync Matches' to load the schedule.")
         return
 
-    grouped = defaultdict(list)
-    for m in matches:
+    # Flatten + parse times
+    flat = []
+    for m in all_matches:
         try:
             utc_str = m["match_time"].replace("Z", "+00:00")
             utc_dt = datetime.fromisoformat(utc_str)
         except (ValueError, AttributeError):
             utc_dt = datetime.now(timezone.utc)
+        flat.append((m, utc_dt))
+
+    total = len(flat)
+    total_pages = max(1, (total + _PAGE_SIZE - 1) // _PAGE_SIZE)
+    page_key = "betting_page"
+    if page_key not in st.session_state:
+        st.session_state[page_key] = 1
+    page = st.session_state[page_key]
+
+    # Clamp page if matches changed
+    if page > total_pages:
+        page = total_pages
+        st.session_state[page_key] = page
+
+    start = (page - 1) * _PAGE_SIZE
+    end = start + _PAGE_SIZE
+    page_matches = flat[start:end]
+
+    # Pagination controls (top)
+    _render_pagination(page, total_pages, total, page_key, "top")
+
+    # Group visible matches by date
+    grouped = defaultdict(list)
+    for m, utc_dt in page_matches:
         date_key = utc_dt.strftime("%Y-%m-%d")
         grouped[date_key].append((m, utc_dt))
 
-    first_date = True
     for date_key in sorted(grouped.keys()):
         day_matches = grouped[date_key]
         try:
@@ -302,22 +345,42 @@ def render_place_bets_tab(user_id: int, coins: int):
         except ValueError:
             date_label = date_key
 
-        if first_date:
-            first_date = False
-        else:
-            st.markdown("<br>", unsafe_allow_html=True)
-
         st.markdown(f"""
         <div class="date-header">
             <span class="line"></span>
             <span class="date-text">{date_label}</span>
-            <span class="match-count">{len(day_matches)} matches</span>
+            <span class="match-count">{len(day_matches)} match(es)</span>
             <span class="line"></span>
         </div>
         """, unsafe_allow_html=True)
 
         for m, utc_dt in day_matches:
             _render_match_fixture(m, user_id, coins)
+
+    # Pagination controls (bottom)
+    _render_pagination(page, total_pages, total, page_key, "bottom")
+
+
+def _render_pagination(page, total_pages, total, key, pos):
+    """Render prev/next pagination bar."""
+    prev_key = f"{key}_{pos}_prev"
+    next_key = f"{key}_{pos}_next"
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c1:
+        st.button("← Prev", key=prev_key, disabled=(page == 1),
+                  on_click=lambda: st.session_state.update({key: page - 1}),
+                  use_container_width=True)
+    with c2:
+        st.markdown(
+            f"<div style='text-align:center;padding-top:6px;color:var(--text-muted);"
+            f"font-family:Chakra Petch,sans-serif;font-size:0.85rem'>"
+            f"Page {page} of {total_pages} &nbsp;·&nbsp; {total} matches</div>",
+            unsafe_allow_html=True,
+        )
+    with c3:
+        st.button("Next →", key=next_key, disabled=(page == total_pages),
+                  on_click=lambda: st.session_state.update({key: page + 1}),
+                  use_container_width=True)
 
 
 def _render_existing_bets(bets: list, m: dict):

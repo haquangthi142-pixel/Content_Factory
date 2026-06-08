@@ -328,10 +328,15 @@ def update_match_result(match_id: int, result: str):
 _bet_timestamps: dict[int, list[float]] = {}  # user_id -> list of recent bet timestamps
 _MAX_BETS_PER_MINUTE = 10
 
+_login_attempts: dict[str, list[float]] = {}  # phone -> list of recent failed login timestamps
+_MAX_LOGIN_ATTEMPTS_PER_MINUTE = 5
+
 
 def _reset_rate_limits():
     """Clear rate-limit state. For tests only."""
     _bet_timestamps.clear()
+    _login_attempts.clear()
+    _sync_timestamps.clear()
 
 
 def _check_rate_limit(user_id: int) -> bool:
@@ -344,6 +349,41 @@ def _check_rate_limit(user_id: int) -> bool:
     if len(stamps) >= _MAX_BETS_PER_MINUTE:
         return False
     stamps.append(now)
+    return True
+
+
+def check_login_rate_limit(phone: str) -> bool:
+    """Return True if login is allowed, False if rate limited (too many failed attempts)."""
+    now = datetime.now(timezone.utc).timestamp()
+    stamps = _login_attempts.get(phone, [])
+    # Purge old entries
+    stamps = [t for t in stamps if now - t < 60]
+    _login_attempts[phone] = stamps
+    if len(stamps) >= _MAX_LOGIN_ATTEMPTS_PER_MINUTE:
+        return False
+    return True
+
+
+def record_failed_login(phone: str):
+    """Record a failed login attempt for rate limiting."""
+    now = datetime.now(timezone.utc).timestamp()
+    stamps = _login_attempts.get(phone, [])
+    stamps = [t for t in stamps if now - t < 60]
+    stamps.append(now)
+    _login_attempts[phone] = stamps
+
+
+_sync_timestamps: dict[int, float] = {}  # user_id -> last sync timestamp
+_SYNC_COOLDOWN_SECONDS = 30
+
+
+def check_sync_rate_limit(user_id: int) -> bool:
+    """Return True if the user is allowed to sync matches (max once per 30s)."""
+    now = datetime.now(timezone.utc).timestamp()
+    last = _sync_timestamps.get(user_id, 0)
+    if now - last < _SYNC_COOLDOWN_SECONDS:
+        return False
+    _sync_timestamps[user_id] = now
     return True
 
 
@@ -709,6 +749,7 @@ def admin_delete_user(user_id: int):
     try:
         conn.execute("DELETE FROM mission_logs WHERE user_id = ?", (user_id,))
         conn.execute("DELETE FROM coin_transactions WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM purchase_requests WHERE user_id = ?", (user_id,))
         conn.execute("DELETE FROM bets WHERE user_id = ?", (user_id,))
         conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
         conn.commit()

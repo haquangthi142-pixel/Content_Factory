@@ -6,6 +6,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 API_KEY = os.getenv("API_FOOTBALL_KEY", "")
+
+try:
+    import streamlit as st  # noqa: F811
+    API_KEY = st.secrets.get("API_FOOTBALL_KEY", API_KEY)
+except Exception:
+    pass
 BASE_URL = "https://api.football-data.org/v4"
 
 

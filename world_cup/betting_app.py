@@ -2,6 +2,7 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
+import time
 from datetime import datetime
 
 from world_cup import api as match_api
@@ -161,6 +162,19 @@ if st.session_state.user is None:
 
 
 # ---------------------------------------------------------------------------
+# Session timeout — 60 min idle → logout
+# ---------------------------------------------------------------------------
+
+now = time.time()
+if st.session_state.get("_last_activity") and (now - st.session_state["_last_activity"] > 3600):
+    st.session_state.user = None
+    st.session_state._last_activity = None
+    st.warning("Session expired due to inactivity. Please log in again.")
+    st.rerun()
+st.session_state["_last_activity"] = now
+
+
+# ---------------------------------------------------------------------------
 # Auto-sync matches on first login (once per session)
 # ---------------------------------------------------------------------------
 
@@ -175,6 +189,12 @@ if not st.session_state.get("_matches_synced"):
 
 user = st.session_state.user
 user_data = db.get_user(user["id"])
+if user_data is None:
+    st.session_state.user = None
+    st.warning("Your account has been removed. Please re-register.")
+    st.rerun()
+# Keep session state in sync with DB
+st.session_state.user = dict(user_data)
 coins = user_data["current_coins"]
 leaderboard = db.get_leaderboard()
 rank = next((i + 1 for i, r in enumerate(leaderboard) if r["id"] == user["id"]), "?")
