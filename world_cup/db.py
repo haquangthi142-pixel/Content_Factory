@@ -1,10 +1,9 @@
 import hashlib
-import os
 import secrets
-import sqlite3
 from datetime import datetime, timezone
 
 from world_cup import game
+from world_cup.turso import get_connection, DB_PATH
 
 # ---------------------------------------------------------------------------
 # Password hashing (stdlib only)
@@ -26,14 +25,6 @@ def verify_password(password: str, stored: str) -> bool:
     except (ValueError, AttributeError):
         return False
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "game.db")
-
-
-def get_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.row_factory = sqlite3.Row
-    return conn
 
 
 def init_db():
