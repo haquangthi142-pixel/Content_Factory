@@ -19,59 +19,13 @@ LOCKOUT_SECONDS = 60
 
 ADMIN_CSS = """
 <style>
-/* ── Admin panel: black bg, white text ── */
-.admin-root, .admin-root * {
-    color: #ffffff !important;
+/* ── Admin panel: minimal overrides, default Streamlit colors ── */
+.admin-root {
     font-family: 'Chakra Petch', sans-serif;
 }
 .admin-root h2, .admin-root h3, .admin-root h4 {
     font-family: 'Bebas Neue', sans-serif !important;
     letter-spacing: 0.05em;
-    color: #ffffff !important;
-}
-
-/* Select boxes */
-.admin-root [data-baseweb="select"],
-.admin-root .stSelectbox [data-baseweb="select"] {
-    background: #0a0a0a !important;
-    border-color: rgba(255,255,255,0.20) !important;
-    border-radius: 6px !important;
-}
-.admin-root [data-baseweb="select"] *,
-.admin-root [data-baseweb="select"] span,
-.admin-root [data-baseweb="select"] div {
-    color: #ffffff !important;
-}
-
-/* Dropdown popover */
-.admin-root [data-baseweb="popover"] {
-    background: #0a0a0a !important;
-    border: 1px solid rgba(255,255,255,0.15) !important;
-}
-.admin-root [data-baseweb="popover"] li {
-    color: #ffffff !important;
-}
-.admin-root [data-baseweb="popover"] li:hover {
-    background: #1a1a1a !important;
-}
-.admin-root [data-baseweb="popover"] input {
-    color: #ffffff !important;
-    background: #000000 !important;
-}
-
-/* Text inputs & number inputs */
-.admin-root input[type="text"],
-.admin-root input[type="password"],
-.admin-root input[type="number"],
-.admin-root .stTextInput input,
-.admin-root .stNumberInput input {
-    background: #0a0a0a !important;
-    color: #ffffff !important;
-    border-color: rgba(255,255,255,0.20) !important;
-    border-radius: 6px !important;
-}
-.admin-root input::placeholder {
-    color: rgba(255,255,255,0.35) !important;
 }
 
 /* Buttons */
@@ -111,40 +65,129 @@ ADMIN_CSS = """
 }
 
 /* Dataframes / tables */
-.admin-root .stDataFrame {
-    background: #0a0a0a !important;
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 6px;
-}
-.admin-root .stDataFrame * {
-    color: #ffffff !important;
+.admin-root [data-testid="stTable"] {
+    background: transparent;
 }
 
-/* Expanders */
-.admin-root .stExpander {
-    background: #0a0a0a !important;
-    border: 1px solid rgba(255,255,255,0.10) !important;
-    border-radius: 6px !important;
-}
-.admin-root .stExpander * {
-    color: #ffffff !important;
-}
-
-/* Checkboxes */
-.admin-root .stCheckbox {
-    color: #ffffff !important;
-}
-
-/* Info / Success / Error boxes keep defaults */
-
-/* Captions */
-.admin-root .stCaption {
-    color: rgba(255,255,255,0.55) !important;
-}
-
-/* HR */
 .admin-root hr {
     border-color: rgba(255,255,255,0.08) !important;
+}
+
+/* ── Admin match select cards ── */
+.admin-match-card {
+    background: var(--bg-card, #111820);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.admin-match-card:hover {
+    border-color: rgba(255,255,255,0.15);
+    background: var(--bg-card-hover, #161e2a);
+}
+.admin-match-card-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+.admin-match-teams {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: 'Chakra Petch', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary, #e8e4dc);
+}
+.admin-team-a, .admin-team-b {
+    flex: 1;
+}
+.admin-team-b {
+    text-align: right;
+}
+.admin-vs {
+    color: var(--text-muted, #8b8d92);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+}
+.admin-match-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 0.7rem;
+    color: var(--text-muted, #8b8d92);
+}
+.admin-status-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+}
+.admin-handicap-badge {
+    display: inline-block;
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 500;
+    padding: 2px 10px;
+    border-radius: 10px;
+    letter-spacing: 0.02em;
+    align-self: flex-start;
+}
+
+/* ── Admin handicap editor panel ── */
+.admin-editor-card {
+    background: rgba(17, 24, 32, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(212, 168, 67, 0.3);
+    border-radius: 12px;
+    padding: 1.25rem;
+}
+.admin-editor-header {
+    font-family: 'Bebas Neue', sans-serif !important;
+    font-size: 1.3rem;
+    letter-spacing: 0.06em;
+    color: var(--gold-bright, #f0c75e);
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding-bottom: 0.5rem;
+}
+.admin-editor-placeholder {
+    font-family: 'Chakra Petch', sans-serif;
+    color: var(--text-muted, #8b8d92);
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 3rem 1rem;
+}
+.admin-editor-match-header {
+    font-family: 'Chakra Petch', sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text-primary, #e8e4dc);
+    margin-bottom: 1rem;
+    text-align: center;
+}
+.admin-editor-team {
+    font-size: 1.05rem;
+}
+.admin-editor-vs {
+    color: var(--text-muted, #8b8d92);
+    font-size: 0.7rem;
+    margin: 0 0.35rem;
+}
+.admin-editor-time {
+    font-size: 0.72rem;
+    color: var(--text-muted, #8b8d92);
+}
+.admin-editor-label {
+    font-family: 'Bebas Neue', sans-serif !important;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    color: var(--gold, #d4a843);
+    margin: 0.75rem 0 0.25rem 0;
+    text-transform: uppercase;
 }
 </style>
 """
@@ -390,10 +433,15 @@ def _render_matches():
             add_score_a = cs1.number_input("Score A", min_value=0, step=1, key="add_score_a", value=None)
             add_score_b = cs2.number_input("Score B", min_value=0, step=1, key="add_score_b", value=None)
             st.caption("Handicap (optional)")
-            ch1, ch2, ch3 = st.columns(3)
-            h_line = ch1.selectbox("Line", [None, 0.5, 1.5, 2.5, 3.5], key="add_h_line")
-            h_fav = ch2.selectbox("Favorite", [None, "A", "B"], key="add_h_fav")
-            h_fee = ch3.number_input("Fee %", min_value=0, max_value=20, value=5, key="add_h_fee")
+            hc1, hc2 = st.columns(2)
+            h_line = hc1.number_input("Team A gives (goals)", min_value=0.0, max_value=10.0, step=0.5, value=0.0, key="add_h_line")
+            h_fav = hc2.selectbox("Favorite", ["None", "Team A", "Team B"], key="add_h_fav")
+            h_fee = st.number_input("Fee %", min_value=0, max_value=20, value=5, key="add_h_fee")
+            # Convert to DB values
+            if h_fav == "None" or h_line == 0.0:
+                h_line, h_fav = None, None
+            else:
+                h_fav = "A" if h_fav == "Team A" else "B"
             if st.form_submit_button("Add Match"):
                 if team_a.strip() and team_b.strip() and match_time.strip():
                     db.admin_insert_match(
@@ -411,13 +459,27 @@ def _render_matches():
         st.info("No matches yet.")
         return
 
-    st.caption(f"{len(matches)} match(es)")
-    st.dataframe(matches, use_container_width=True, hide_index=True)
+    # -- Filter --
+    status_filter = st.selectbox(
+        "Filter by status",
+        ["All", "Not Started", "Live", "Finished"],
+        key="match_filter",
+    )
+    filtered = matches if status_filter == "All" else [m for m in matches if m["status"] == status_filter]
+    st.caption(f"{len(filtered)} match(es)")
+
+    left, right = st.columns([1, 1])
+
+    with left:
+        for m in filtered:
+            _render_match_select_card(m)
+
+    with right:
+        _render_handicap_editor(matches)
 
     st.markdown("---")
+    st.subheader("Edit Match (Full)")
 
-    # -- Edit / Delete Match --
-    st.subheader("Edit Match")
     match_opts = [f"[{m['match_id']}] {m['team_a']} vs {m['team_b']} ({m['status']})" for m in matches]
     id_to_match = {f"[{m['match_id']}] {m['team_a']} vs {m['team_b']} ({m['status']})": m for m in matches}
 
@@ -448,19 +510,22 @@ def _render_matches():
                                        value=match.get("score_b") or 0)
 
         st.caption("Handicap")
-        eh1, eh2, eh3 = st.columns(3)
-        h_line_opts = [None, 0.5, 1.5, 2.5, 3.5]
         cur_h_line = match.get("handicap_line")
-        eh_line = eh1.selectbox("Line", h_line_opts,
-            index=h_line_opts.index(cur_h_line) if cur_h_line in h_line_opts else 0,
-            key="edit_h_line")
-        h_fav_opts = [None, "A", "B"]
         cur_h_fav = match.get("handicap_favorite")
-        eh_fav = eh2.selectbox("Favorite", h_fav_opts,
-            index=h_fav_opts.index(cur_h_fav) if cur_h_fav in h_fav_opts else 0,
+        ehc1, ehc2 = st.columns(2)
+        eh_line = ehc1.number_input("Team A gives (goals)", min_value=0.0, max_value=10.0, step=0.5,
+            value=float(cur_h_line) if cur_h_line is not None else 0.0, key="edit_h_line")
+        eh_fav = ehc2.selectbox("Favorite",
+            ["None", "Team A", "Team B"],
+            index=0 if cur_h_fav is None else (1 if cur_h_fav == "A" else 2),
             key="edit_h_fav")
-        eh_fee = eh3.number_input("Fee %", min_value=0, max_value=20,
+        eh_fee = st.number_input("Fee %", min_value=0, max_value=20,
             value=match.get("handicap_fee") or 5, key="edit_h_fee")
+        # Convert to DB values
+        if eh_fav == "None" or eh_line == 0.0:
+            eh_line, eh_fav = None, None
+        else:
+            eh_fav = "A" if eh_fav == "Team A" else "B"
 
         col_save, col_settle, col_del = st.columns([1, 1, 1])
         with col_save:
@@ -495,6 +560,237 @@ def _render_matches():
                 st.success(f"Deleted match #{match['match_id']}")
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
+
+
+def _render_match_select_card(match):
+    """Render a single clickable match card for the admin match list."""
+    selected_id = st.session_state.get("selected_match_id")
+    is_selected = selected_id == match["match_id"]
+
+    # Build the handicap badge text
+    h_line = match.get("handicap_line")
+    h_fav = match.get("handicap_favorite")
+    if h_line is not None and h_fav is not None:
+        fav_team = match["team_a"] if h_fav == "A" else match["team_b"]
+        badge = f"{fav_team} &#x2212;{h_line} &middot; {match.get('handicap_fee', 5)}%"
+        badge_color = "rgba(46,204,113,0.18)"
+        badge_text = "#2ecc71"
+    else:
+        badge = "&mdash; no handicap"
+        badge_color = "rgba(255,255,255,0.06)"
+        badge_text = "var(--text-muted)"
+
+    # Status dot
+    status_color = {
+        "Not Started": "#5a6a7a",
+        "Live": "#e67e22",
+        "Finished": "#27ae60",
+    }.get(match["status"], "#5a6a7a")
+
+    # Time display
+    match_time = match.get("match_time", "")
+    try:
+        from datetime import datetime as _dt
+        dt = _dt.strptime(match_time[:19], "%Y-%m-%dT%H:%M:%S")
+        time_display = dt.strftime("%a %d %b &middot; %H:%M")
+    except (ValueError, TypeError):
+        time_display = match_time[:16] if match_time else ""
+
+    border_style = (
+        "border-left: 3px solid var(--gold-bright);"
+        "background: var(--bg-card-hover);"
+        if is_selected else
+        "border-left: 1px solid var(--border-subtle);"
+    )
+
+    st.markdown(f"""
+    <div class="admin-match-card" style="{border_style}">
+        <div class="admin-match-card-inner">
+            <div class="admin-match-teams">
+                <span class="admin-team-a">{match['team_a']}</span>
+                <span class="admin-vs">vs</span>
+                <span class="admin-team-b">{match['team_b']}</span>
+            </div>
+            <div class="admin-match-meta">
+                <span class="admin-status-dot" style="background:{status_color}"></span>
+                <span>{match['status']}</span>
+                <span>&middot;</span>
+                <span>{time_display}</span>
+            </div>
+            <span class="admin-handicap-badge" style="background:{badge_color};color:{badge_text}">
+                {badge}
+            </span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Click handler
+    label = "✕ Deselect" if is_selected else "Select"
+    if st.button(label, key=f"sel_match_{match['match_id']}"):
+        if is_selected:
+            st.session_state.pop("selected_match_id", None)
+        else:
+            st.session_state["selected_match_id"] = match["match_id"]
+        st.rerun()
+
+
+def _render_handicap_editor(matches):
+    """Render the handicap editor panel for the selected match."""
+    selected_id = st.session_state.get("selected_match_id")
+
+    # Look up the selected match (needed for both empty state and header)
+    match = None
+    if selected_id is not None:
+        for m in matches:
+            if m["match_id"] == selected_id:
+                match = m
+                break
+
+    # Editor card wrapper
+    st.markdown("""
+    <div class="admin-editor-card">
+        <div class="admin-editor-header">HANDICAP EDITOR</div>
+    """, unsafe_allow_html=True)
+
+    if selected_id is None:
+        st.markdown("""
+        <div class="admin-editor-placeholder">
+            &#x2190; Select a match to edit handicap
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+
+    if match is None:
+        st.markdown(f"""
+        <div class="admin-editor-placeholder">
+            Match #{selected_id} not found &mdash; it may have been deleted.
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+
+    # Header: teams + time
+    st.markdown(f"""
+    <div class="admin-editor-match-header">
+        <span class="admin-editor-team">{match['team_a']}</span>
+        <span class="admin-editor-vs">vs</span>
+        <span class="admin-editor-team">{match['team_b']}</span>
+        <br>
+        <span class="admin-editor-time">{match.get('match_time', '')[:16]}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Current handicap state from DB
+    cur_line = match.get("handicap_line")
+    cur_fav = match.get("handicap_favorite")
+    cur_fee = match.get("handicap_fee") or 5
+
+    # Handicap Line
+    st.markdown('<p class="admin-editor-label">Handicap Line</p>', unsafe_allow_html=True)
+    quick_vals = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+    qcols = st.columns(len(quick_vals) + 1)
+    line_key = f"edit_h_line_{selected_id}"
+    if line_key not in st.session_state:
+        st.session_state[line_key] = float(cur_line) if cur_line is not None else 0.0
+    for i, val in enumerate(quick_vals):
+        with qcols[i]:
+            is_active = abs(st.session_state[line_key] - val) < 0.01
+            btn_label = f"**{val}**" if is_active else str(val)
+            if st.button(btn_label, key=f"qh_{val}_{selected_id}", use_container_width=True):
+                st.session_state[line_key] = val
+                st.rerun()
+    with qcols[-1]:
+        new_line = st.number_input(
+            "Custom", min_value=0.0, max_value=10.0, step=0.5,
+            key=line_key, label_visibility="collapsed",
+        )
+
+    # Favorite
+    st.markdown('<p class="admin-editor-label">Favorite</p>', unsafe_allow_html=True)
+    fav_key = f"edit_h_fav_{selected_id}"
+    if fav_key not in st.session_state:
+        default_fav = 0
+        if cur_fav == "A":
+            default_fav = 1
+        elif cur_fav == "B":
+            default_fav = 2
+        st.session_state[fav_key] = default_fav
+    fav_choice = st.radio(
+        "Favorite",
+        ["None", match["team_a"], match["team_b"]],
+        key=fav_key,
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+
+    # Fee
+    st.markdown('<p class="admin-editor-label">Fee %</p>', unsafe_allow_html=True)
+    fee_key = f"edit_h_fee_{selected_id}"
+    if fee_key not in st.session_state:
+        st.session_state[fee_key] = cur_fee
+    new_fee = st.number_input(
+        "Fee", min_value=0, max_value=20, step=1,
+        key=fee_key, label_visibility="collapsed",
+    )
+
+    # Live preview
+    st.markdown("---")
+    if fav_choice != "None" and st.session_state[line_key] > 0.0:
+        payout_mult = float(db.HANDICAP_PAYOUT) if hasattr(db, 'HANDICAP_PAYOUT') else 2.0
+        st.info(
+            f"**{fav_choice}** gives **{st.session_state[line_key]}** goals &middot; "
+            f"Fee: **{new_fee}%**  \n"
+            f"Payout multiplier: **{payout_mult:.1f}&times;** "
+            f"(stake minus fee, doubled on win)"
+        )
+    elif st.session_state[line_key] > 0.0:
+        st.caption("⚠️ Select a favorite to activate the handicap.")
+
+    # Save & Clear
+    col_save, col_clear = st.columns([2, 1])
+    with col_save:
+        if st.button("\U0001f4be Save Handicap", key=f"save_h_{selected_id}", use_container_width=True):
+            # Build final values
+            if fav_choice == "None" or st.session_state[line_key] == 0.0:
+                final_line, final_fav = None, None
+            else:
+                final_line = float(st.session_state[line_key])
+                final_fav = "A" if fav_choice == match["team_a"] else "B"
+            try:
+                db.admin_update_match(
+                    selected_id,
+                    match["team_a"], match["team_b"], match["match_time"],
+                    match["status"], match.get("result"),
+                    score_a=match.get("score_a"), score_b=match.get("score_b"),
+                    handicap_line=final_line, handicap_favorite=final_fav, handicap_fee=new_fee,
+                )
+                st.toast(f"✅ Handicap saved for {match['team_a']} vs {match['team_b']}")
+                for k in [line_key, fav_key, fee_key]:
+                    st.session_state.pop(k, None)
+                st.rerun()
+            except Exception as e:
+                st.error(f"Save failed: {e}")
+
+    with col_clear:
+        if cur_line is not None or cur_fav is not None:
+            if st.button("\U0001f5d1 Clear", key=f"clear_h_{selected_id}", use_container_width=True):
+                try:
+                    db.admin_update_match(
+                        selected_id,
+                        match["team_a"], match["team_b"], match["match_time"],
+                        match["status"], match.get("result"),
+                        score_a=match.get("score_a"), score_b=match.get("score_b"),
+                        handicap_line=None, handicap_favorite=None, handicap_fee=new_fee,
+                    )
+                    st.toast("Handicap cleared")
+                    for k in [line_key, fav_key, fee_key]:
+                        st.session_state.pop(k, None)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Clear failed: {e}")
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _render_bets():
