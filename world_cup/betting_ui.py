@@ -478,29 +478,7 @@ def _render_match_fixture(m: dict, user_id: int, coins: int):
 
     # Expanded bet slip
     if st.session_state.get(f"bet_expand_{match_id}", False):
-        has_handicap = m["handicap_line"] is not None and m["handicap_favorite"] is not None
-        if has_handicap:
-            market_key = f"market_{match_id}"
-            if market_key not in st.session_state:
-                st.session_state[market_key] = "1X2"
-            market_choice = st.radio(
-                "Select Market:",
-                ["1X2 (Win/Draw/Win)", "Handicap"],
-                key=market_key,
-                horizontal=True,
-            )
-            is_handicap = market_choice.startswith("Handicap")
-        else:
-            is_handicap = False
-
-        if is_handicap:
-            _render_handicap_bet_slip = globals().get("_render_handicap_bet_slip")
-            if _render_handicap_bet_slip:
-                _render_handicap_bet_slip(m, coins, match_id)
-            else:
-                st.info("Handicap betting coming soon.")
-        else:
-            _render_bet_slip(m, coins, match_id)
+        _render_bet_slip(m, coins, match_id)
 
 
 def _render_bet_slip(m: dict, coins: int, match_id: int):
