@@ -364,16 +364,16 @@ def match_card_db(match: dict):
 
     live_class = " live" if is_live else ""
 
-    # Handicap badge
+    # Handicap badge — show favorite gives N goals
     h_line = match.get("handicap_line")
     h_fav = match.get("handicap_favorite")
     handicap_html = ""
     if h_line is not None and h_fav is not None:
         fav_name = home_name if h_fav == "A" else away_name
-        h_fee = match.get("handicap_fee") or 5
+        und_name = away_name if h_fav == "A" else home_name
         handicap_html = f"""
-        <div class="match-handicap-badge" title="Handicap: {html.escape(fav_name)} gives {h_line} goals, {h_fee}% fee">
-            ⚽ {html.escape(fav_name)} −{h_line} · {h_fee}%
+        <div class="match-handicap-badge" title="Handicap: {html.escape(fav_name)} −{h_line} vs {html.escape(und_name)} +{h_line}">
+            ⚽ {html.escape(fav_name)} −{h_line} &nbsp;·&nbsp; {html.escape(und_name)} +{h_line}
         </div>"""
 
     st.markdown(f"""
