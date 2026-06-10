@@ -1,0 +1,97 @@
+#MainMenu { visibility: hidden !important; }
+
+    /* ── Login wrapper: full-viewport centering + stadium atmosphere ── */
+    .login-wrapper {
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        min-height: calc(100vh - 3rem); padding: 1.5rem; position: relative;
+    }
+.login-wrapper::before {
+    content: ''; position: fixed; inset: 0;
+    background:
+        radial-gradient(ellipse at 50% 40%, rgba(212,168,67,0.09) 0%, transparent 55%),
+        radial-gradient(circle at 50% 55%, rgba(240,199,94,0.04) 0%, transparent 70%),
+        radial-gradient(ellipse at 50% 95%, rgba(212,168,67,0.05) 0%, transparent 40%);
+    pointer-events: none; z-index: 0;
+}
+    /* Subtle pitch-line grid */
+.login-wrapper::after {
+    content: ''; position: fixed; inset: 0;
+    background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 80px, rgba(255,255,255,0.010) 80px, rgba(255,255,255,0.010) 81px),
+        repeating-linear-gradient(90deg, transparent, transparent 80px, rgba(255,255,255,0.006) 80px, rgba(255,255,255,0.006) 81px);
+    pointer-events: none; z-index: 0;
+}
+
+    /* ── Login card: refined, animated entrance ── */
+    .login-card {
+        background: var(--bg-surface); border: 1px solid var(--border-subtle);
+        border-radius: 18px; padding: 2rem 1.75rem; max-width: 400px; width: 100%;
+        margin: 0 auto; position: relative; z-index: 1; overflow: hidden;
+        box-shadow: 0 12px 60px rgba(0,0,0,0.65), 0 0 140px rgba(212,168,67,0.05);
+        animation: card-enter 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    @keyframes card-enter {
+        from { opacity: 0; transform: translateY(32px) scale(0.95); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+.login-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, var(--gold-bright), transparent);
+    opacity: 0.7;
+    animation: gold-shimmer 3.5s ease-in-out infinite;
+}
+    @keyframes gold-shimmer {
+        0%, 100% { opacity: 0.4; }
+        50%      { opacity: 0.9; }
+    }
+.login-card::after {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(240,199,94,0.10) 0%, transparent 65%);
+    pointer-events: none;
+}
+
+    /* ── Streamlit input overrides inside login card ── */
+    .login-card [data-testid="stTextInput"] input {
+        background: var(--bg-deep) !important;
+        border: 1px solid var(--border-subtle) !important;
+        border-radius: 6px !important;
+        color: var(--text-primary) !important;
+        font-family: 'Chakra Petch', sans-serif !important;
+        font-size: 0.85rem !important;
+        padding: 0.45rem 0.7rem !important;
+        transition: border-color 0.25s, box-shadow 0.25s;
+    }
+    .login-card [data-testid="stTextInput"] input:focus {
+        border-color: var(--border-active) !important;
+        box-shadow: 0 0 0 2px rgba(212,168,67,0.10) !important;
+    }
+    .login-card [data-testid="stTextInput"] label {
+        font-family: 'Chakra Petch', sans-serif !important;
+        font-size: 0.7rem !important; color: var(--text-secondary) !important;
+        letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    .login-card [data-testid="stButton"] button {
+        background: linear-gradient(135deg, #c9a94e 0%, #8b6914 100%) !important;
+        border: none !important; color: #0a0e14 !important;
+        font-family: 'Bebas Neue', sans-serif !important;
+        font-size: 1.2rem !important; letter-spacing: 0.1em !important;
+        padding: 0.65rem 2rem !important; border-radius: 8px !important;
+        transition: all 0.25s; text-transform: uppercase;
+    }
+    .login-card [data-testid="stButton"] button:hover {
+        background: linear-gradient(135deg, #f0c75e 0%, #c9a94e 100%) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 28px rgba(212,168,67,0.35);
+    }
+
+    /* ── Compact mode for small screens ── */
+    @media (max-height: 680px) {
+        .login-wrapper { padding: 0.75rem; min-height: 100vh; }
+        .login-card { padding: 1.5rem 1.5rem; }
+        .login-card { padding: 1.25rem 1.25rem; }
+    }
+
+.header-bar { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    border-radius: 12px; padding: 1rem 1.5rem; margin-bottom: 1.25rem; }

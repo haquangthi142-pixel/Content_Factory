@@ -110,6 +110,8 @@ def init_db():
         ("handicap_line_bet", "ALTER TABLE bets ADD COLUMN handicap_line REAL"),
         ("handicap_side", "ALTER TABLE bets ADD COLUMN handicap_side TEXT"),
         ("password_hash", "ALTER TABLE users ADD COLUMN password_hash TEXT"),
+        ("crest_a", "ALTER TABLE matches ADD COLUMN crest_a TEXT"),
+        ("crest_b", "ALTER TABLE matches ADD COLUMN crest_b TEXT"),
     ]:
         try:
             conn.execute(_ddl)
@@ -208,6 +210,8 @@ def sync_matches_from_api():
             match_id = m["id"]
             team_a = m["homeTeam"].get("name") or "TBD"
             team_b = m["awayTeam"].get("name") or "TBD"
+            crest_a = m["homeTeam"].get("crest") or ""
+            crest_b = m["awayTeam"].get("crest") or ""
             match_time = m["utcDate"]
 
             status_raw = m.get("status", "SCHEDULED")
@@ -236,17 +240,19 @@ def sync_matches_from_api():
                         result = "Draw"
 
             conn.execute("""
-                INSERT INTO matches (match_id, team_a, team_b, match_time, status, result, score_a, score_b)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO matches (match_id, team_a, team_b, crest_a, crest_b, match_time, status, result, score_a, score_b)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(match_id) DO UPDATE SET
                     team_a    = excluded.team_a,
                     team_b    = excluded.team_b,
+                    crest_a   = excluded.crest_a,
+                    crest_b   = excluded.crest_b,
                     match_time = excluded.match_time,
                     status    = excluded.status,
                     result    = excluded.result,
                     score_a   = excluded.score_a,
                     score_b   = excluded.score_b
-            """, (match_id, team_a, team_b, match_time, status, result, score_a, score_b))
+            """, (match_id, team_a, team_b, crest_a, crest_b, match_time, status, result, score_a, score_b))
 
         conn.commit()
         return len(matches)
@@ -260,21 +266,24 @@ def sync_matches_from_api():
 
 def upsert_match(match_id: int, team_a: str, team_b: str, match_time: str,
                  status: str = "Not Started", result: str = None,
-                 score_a: int | None = None, score_b: int | None = None):
+                 score_a: int | None = None, score_b: int | None = None,
+                 crest_a: str = "", crest_b: str = ""):
     conn = get_connection()
     try:
         conn.execute("""
-            INSERT INTO matches (match_id, team_a, team_b, match_time, status, result, score_a, score_b)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO matches (match_id, team_a, team_b, crest_a, crest_b, match_time, status, result, score_a, score_b)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(match_id) DO UPDATE SET
                 team_a    = excluded.team_a,
                 team_b    = excluded.team_b,
+                crest_a   = excluded.crest_a,
+                crest_b   = excluded.crest_b,
                 match_time = excluded.match_time,
                 status    = excluded.status,
                 result    = excluded.result,
                 score_a   = excluded.score_a,
                 score_b   = excluded.score_b
-        """, (match_id, team_a, team_b, match_time, status, result, score_a, score_b))
+        """, (match_id, team_a, team_b, crest_a, crest_b, match_time, status, result, score_a, score_b))
         conn.commit()
     finally:
         conn.close()

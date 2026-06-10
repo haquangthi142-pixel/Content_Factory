@@ -1,0 +1,72 @@
+def render_login_screen():
+    _inject_css()
+    st.markdown("""
+    <div style="text-align:center;padding-top:3rem;">
+        <h1 style="font-size:4.5rem;margin-bottom:0;background:linear-gradient(180deg, #f5d78c 0%, #c9a94e 60%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+            WORLD CUP 2026
+        </h1>
+        <p style="font-family:'Chakra Petch',sans-serif;color:var(--text-secondary);font-size:1.2rem;margin-top:-0.5rem;">
+            Internal Betting Game
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 1.3, 1])
+    with col2:
+        st.markdown("""
+        <div class="login-card">
+            <h3 style="margin-top:0;text-align:center;font-size:1.8rem;">Welcome</h3>
+            <p style="text-align:center;font-size:0.95rem;color:var(--text-secondary);margin-bottom:2rem;">
+                Sign in or register to start betting
+            </p>
+        """, unsafe_allow_html=True)
+
+        phone = st.text_input("Phone Number", placeholder="+84xxxxxxxxx", key="login_phone")
+        name = st.text_input("Full Name", placeholder="Nguyen Van A", key="login_name")
+        password = st.text_input("Password", type="password", placeholder="Min 4 characters", key="login_password")
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        if st.button("Enter the Game  →", use_container_width=True, key="login_btn"):
+            if not (phone.strip() and name.strip() and password.strip()):
+                st.warning("Please fill in all fields.")
+            elif len(password.strip()) < 4:
+                st.warning("Password must be at least 4 characters.")
+            elif not db.check_login_rate_limit(phone.strip()):
+                st.error("Too many failed attempts. Try again in a minute.")
+            else:
+                user = db.get_user_by_phone(phone.strip())
+                if not user:
+                    # New user: register with password
+                    uid = db.register_user(phone.strip(), name.strip(), password.strip())
+                    st.session_state.user = dict(db.get_user(uid))
+                    st.rerun()
+                elif user["full_name"].strip().lower() != name.strip().lower():
+                    db.record_failed_login(phone.strip())
+                    st.error(f"This phone number is already registered to **{user['full_name']}**.")
+                elif user["password_hash"] is None:
+                    # Existing user without password: set password now
+                    conn = db.get_connection()
+                    try:
+                        conn.execute("UPDATE users SET password_hash = ? WHERE id = ?",
+                                     (db.hash_password(password.strip()), user["id"]))
+                        conn.commit()
+                    finally:
+                        conn.close()
+                    st.session_state.user = dict(db.get_user(user["id"]))
+                    st.success("Password set! Welcome back.")
+                    st.rerun()
+                elif db.verify_password(password.strip(), user["password_hash"]):
+                    st.session_state.user = dict(user)
+                    st.rerun()
+                else:
+                    db.record_failed_login(phone.strip())
+                    st.error("Wrong password. Try again.")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------------------------
+# Header
+# ---------------------------------------------------------------------------

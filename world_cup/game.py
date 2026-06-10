@@ -59,19 +59,18 @@ def settle_bet(bet_choice: str, bet_amount: int, match_result: str) -> tuple[str
 # Handicap payouts
 # ---------------------------------------------------------------------------
 
-HANDICAP_PAYOUT = {0.5: 1.8, 1.5: 2.5, 2.5: 3.5, 3.5: 5.0}
+HANDICAP_PAYOUT = 2.0  # flat 2× payout for all handicap lines
 
 
 def get_handicap_payout(line: float) -> float:
-    return HANDICAP_PAYOUT.get(line, 1.0)
+    return HANDICAP_PAYOUT
 
 
 def calc_handicap_win_amount(bet_amount: int, handicap_line: float, fee_percent: int) -> int:
-    """Payout for a winning handicap bet (fee deducted from stake first)."""
+    """Payout for a winning handicap bet: 2× stake minus fee on stake."""
     fee = int(bet_amount * fee_percent / 100)
     net_stake = bet_amount - fee
-    multiplier = get_handicap_payout(handicap_line)
-    return int(net_stake * multiplier)
+    return net_stake * 2
 
 
 def settle_handicap_bet(handicap_side: str, handicap_line: float,

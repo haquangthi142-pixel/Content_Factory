@@ -1,0 +1,97 @@
+{
+  "matches": [
+    {
+      "id": 101,
+      "utcDate": "2026-06-12T20:00:00Z",
+      "status": "SCHEDULED",
+      "stage": "GROUP_STAGE",
+      "group": "GROUP_A",
+      "homeTeam": {
+        "name": "Brazil",
+        "crest": "https://crests.football-data.org/764.svg"
+      },
+      "awayTeam": {
+        "name": "Germany",
+        "crest": "https://crests.football-data.org/759.svg"
+      },
+      "score": {
+        "fullTime": { "home": null, "away": null }
+      }
+    },
+    {
+      "id": 102,
+      "utcDate": "2026-06-13T17:00:00Z",
+      "status": "LIVE",
+      "stage": "GROUP_STAGE",
+      "group": "GROUP_B",
+      "homeTeam": {
+        "name": "Argentina",
+        "crest": "https://crests.football-data.org/762.svg"
+      },
+      "awayTeam": {
+        "name": "France",
+        "crest": "https://crests.football-data.org/773.svg"
+      },
+      "score": {
+        "fullTime": { "home": 2, "away": 1 }
+      }
+    },
+    {
+      "id": 103,
+      "utcDate": "2026-06-14T20:00:00Z",
+      "status": "FINISHED",
+      "stage": "GROUP_STAGE",
+      "group": "GROUP_C",
+      "homeTeam": {
+        "name": "England",
+        "crest": "https://crests.football-data.org/770.svg"
+      },
+      "awayTeam": {
+        "name": "Spain",
+        "crest": "https://crests.football-data.org/760.svg"
+      },
+      "score": {
+        "fullTime": { "home": 3, "away": 0 }
+      }
+    },
+    {
+      "id": 104,
+      "utcDate": "2026-06-15T17:00:00Z",
+      "status": "FINISHED",
+      "stage": "GROUP_STAGE",
+      "group": "GROUP_D",
+      "homeTeam": {
+        "name": "Portugal",
+        "crest": "https://crests.football-data.org/765.svg"
+      },
+      "awayTeam": {
+        "name": "Netherlands",
+        "crest": "https://crests.football-data.org/8601.svg"
+      },
+      "score": {
+        "fullTime": { "home": 1, "away": 1 }
+      }
+    },
+    {
+      "id": 105,
+      "utcDate": "2026-06-16T20:00:00Z",
+      "status": "SCHEDULED",
+      "stage": "ROUND_OF_16",
+      "group": null,
+      "homeTeam": {
+        "name": "Vietnam",
+        "crest": null
+      },
+      "awayTeam": {
+        "name": "Japan",
+        "crest": "https://crests.football-data.org/766.svg"
+      },
+      "score": {
+        "fullTime": { "home": null, "away": null }
+      }
+    }
+  ],
+  "resultSet": {
+    "count": 5
+  }
+}

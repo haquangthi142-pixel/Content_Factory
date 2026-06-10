@@ -70,7 +70,15 @@
       "PowerShell($env:PYTHONIOENCODING = 'utf-8'; python world_cup/tests/test_full_pipeline.py)",
       "Skill(run)",
       "Bash(New-Item *)",
-      "PowerShell(New-Item *)"
+      "PowerShell(New-Item *)",
+      "PowerShell(python -m streamlit run premier_league_dashboard.py --server.port 8501 2>&1)",
+      "PowerShell(python -m streamlit run world_cup/app.py --server.port 8502 2>&1)",
+      "Bash(Start-Sleep -Seconds 8)",
+      "Bash(Get-Content \"C:\\\\Users\\\\staff\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-staff-OneDrive-Desktop-Python-Content-Factory\\\\9e54fd50-89dc-4d46-ba64-c69f37c7eb08\\\\tasks\\\\bwmwuia4c.output\" -Tail 20)",
+      "Bash(node capture_tabs.js)",
+      "Bash(npm ls *)",
+      "Bash(npx playwright *)",
+      "PowerShell(python -m streamlit run \"c:\\\\Users\\\\staff\\\\OneDrive\\\\Desktop\\\\Python\\\\Content_Factory\\\\world_cup\\\\app.py\" --server.port 8502)"
     ]
   }
 }

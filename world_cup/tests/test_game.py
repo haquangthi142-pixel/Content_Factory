@@ -102,19 +102,18 @@ def test_settle_bet_draw():
 # handicap
 # ===========================================================================
 
-def test_get_handicap_payout_known():
-    assert game.get_handicap_payout(0.5) == 1.8
-    assert game.get_handicap_payout(3.5) == 5.0
-
-
-def test_get_handicap_payout_unknown_falls_back():
-    assert game.get_handicap_payout(99.0) == 1.0
+def test_get_handicap_payout():
+    assert game.get_handicap_payout(0.5) == 2.0
+    assert game.get_handicap_payout(1.5) == 2.0
+    assert game.get_handicap_payout(2.5) == 2.0
+    assert game.get_handicap_payout(3.5) == 2.0
+    assert game.get_handicap_payout(99.0) == 2.0
 
 
 def test_calc_handicap_win_amount():
-    # stake=100, fee=5 -> fee_amount=5, net=95, multiplier=1.8 -> 171
+    # stake=100, fee=5 -> fee=5, net=95, multiplier=2 -> 190
     amount = game.calc_handicap_win_amount(100, 0.5, 5)
-    assert amount == 171
+    assert amount == 190
 
 
 # ===========================================================================
@@ -128,7 +127,7 @@ def test_settle_handicap_bet_favorite_covers():
         bet_amount=100, handicap_fee=5,
     )
     assert status == "Won"
-    assert payout == 171  # (100 - 5) * 1.8
+    assert payout == 190  # (100 - 5) * 2
 
 
 def test_settle_handicap_bet_favorite_fails_to_cover():
@@ -148,7 +147,7 @@ def test_settle_handicap_bet_underdog_wins():
         bet_amount=100, handicap_fee=5,
     )
     assert status == "Won"
-    assert payout == 171
+    assert payout == 190  # (100 - 5) * 2
 
 
 def test_settle_handicap_bet_draw_underdog_covers():

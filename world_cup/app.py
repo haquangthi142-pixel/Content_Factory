@@ -52,6 +52,7 @@ def _render_overview_quick_bet(api_match):
     """Show a compact 'Bet' button + inline bet slip in the Overview tab.
 
     Only appears when the user is logged in and the match exists in the DB.
+    Supports both 1X2 and handicap markets when a line is set.
     """
     user = st.session_state.get("user")
     if user is None:
@@ -91,23 +92,50 @@ def _render_overview_quick_bet(api_match):
             st.error("Insufficient coins. Minimum bet is 10 coins.")
             return
 
-        choice = st.radio(
-            "Pick outcome:",
-            [f"{db_match['team_a']} Win", "Draw", f"{db_match['team_b']} Win"],
-            key=f"ov_choice_{match_id}",
-            horizontal=True,
-        )
-        choice_map = {
-            f"{db_match['team_a']} Win": "A",
-            "Draw": "DRAW",
-            f"{db_match['team_b']} Win": "B",
-        }
+        # Check if handicap market is available
+        has_handicap = (db_match["handicap_line"] is not None
+                        and db_match["handicap_favorite"] is not None)
 
+        is_handicap = False
+        if has_handicap:
+            market_key = f"ov_market_{match_id}"
+            if market_key not in st.session_state:
+                st.session_state[market_key] = "1X2"
+            market_choice = st.radio(
+                "Market:", ["1X2", "Handicap"],
+                key=market_key, horizontal=True,
+            )
+            is_handicap = market_choice == "Handicap"
+
+        # Side picker
+        if is_handicap:
+            line = db_match["handicap_line"]
+            fav = db_match["team_a"] if db_match["handicap_favorite"] == "A" else db_match["team_b"]
+            und = db_match["team_b"] if db_match["handicap_favorite"] == "A" else db_match["team_a"]
+            side = st.radio(
+                "", [f"{fav} −{line}", f"{und} +{line}"],
+                key=f"ov_hc_side_{match_id}", horizontal=True,
+            )
+            side_code = "favorite" if side.startswith(fav) else "underdog"
+            hc_fee = db_match.get("handicap_fee") or 5
+        else:
+            choice = st.radio(
+                "",
+                [f"{db_match['team_a']} Win", "Draw", f"{db_match['team_b']} Win"],
+                key=f"ov_choice_{match_id}",
+                horizontal=True,
+            )
+            choice_map = {
+                f"{db_match['team_a']} Win": "A",
+                "Draw": "DRAW",
+                f"{db_match['team_b']} Win": "B",
+            }
+
+        # Amount (shared)
         num_key = f"ov_num_{match_id}"
         if num_key not in st.session_state:
             st.session_state[num_key] = min(50, coins)
 
-        # Quick-add + amount
         qc1, qc2, qc3, qc4 = st.columns([1, 1, 1, 2])
         with qc1:
             if st.button("+10", key=f"ov_qs_{match_id}_10"):
@@ -127,36 +155,19 @@ def _render_overview_quick_bet(api_match):
                 step=10, key=num_key, label_visibility="collapsed",
             )
 
+        # Confirm
         if st.button("Confirm Bet  ✓", key=f"ov_confirm_{match_id}", use_container_width=True):
             try:
-                db.place_bet(user["id"], match_id, choice_map[choice], amount)
-                st.success(f"Bet placed! {amount} coins on {choice}")
+                if is_handicap:
+                    db.place_handicap_bet(user["id"], match_id, side_code, amount, line, hc_fee)
+                    st.success(f"Handicap bet placed! {amount} coins on {side}")
+                else:
+                    db.place_bet(user["id"], match_id, choice_map[choice], amount)
+                    st.success(f"Bet placed! {amount} coins on {choice}")
                 st.session_state[ek] = False
                 st.rerun()
             except ValueError as e:
                 st.error(str(e))
-
-
-@st.dialog("Confirm Purchase Request", width="small")
-def _purchase_confirm_dialog(user_id: int, vnd: int, est_coins: int):
-    """Modal popup — player confirms a coin purchase request before sending."""
-    st.markdown(f"### 🪙 {est_coins} coins")
-    st.caption(f"Amount: **{vnd:,} VND** &nbsp;|&nbsp; Rate: 1,000 VND = 1 coin")
-    st.markdown("---")
-    st.caption("An admin will review and approve your request.")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("✓  Confirm", use_container_width=True, key="dialog_confirm"):
-            try:
-                req_id = db.request_purchase(user_id, vnd)
-                st.session_state._purchase_success = f"Request #{req_id} sent! Awaiting admin approval."
-                st.rerun()
-            except ValueError as e:
-                st.error(str(e))
-    with col2:
-        if st.button("✕  Cancel", use_container_width=True, key="dialog_cancel"):
-            st.rerun()
 
 
 def _render_betting_game():
@@ -268,7 +279,7 @@ st.sidebar.markdown(
 st.sidebar.markdown("---")
 view = st.sidebar.radio(
     "Navigation",
-    ["📊 Overview", "📅 Matches", "📋 Group Standings", "🌍 Teams", "🎮 Betting Game", "🔒 Admin"],
+    ["📊 Overview", "🌍 Teams", "🎮 Betting Game", "🔒 Admin"],
     label_visibility="collapsed",
 )
 
@@ -300,7 +311,55 @@ if st.session_state.get("user") is not None:
     st.sidebar.caption(f"→ **{est} coins** ({vnd:,} VND)")
 
     if st.sidebar.button("Send Request  ✓", key="buy_coins_sidebar_btn", use_container_width=True):
-        _purchase_confirm_dialog(user["id"], vnd, est)
+        st.session_state._show_purchase_popup = True
+
+    # --- Custom confirmation popup (no backdrop, no dimming) ---
+    if st.session_state.get("_show_purchase_popup"):
+        user_id = user["id"]
+        # Popup card — floats over content, clean white card with shadow
+        st.sidebar.markdown(f"""
+            <style>
+            .purchase-popup-card {{
+                background: white; border-radius: 12px; padding: 1.5rem 1.25rem;
+                box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+                margin-top: 0.75rem; border: 1px solid #e2e2e2;
+            }}
+            .purchase-popup-card h3 {{
+                font-family: 'Bebas Neue', sans-serif !important; color: #111 !important;
+                margin: 0 0 0.25rem 0; font-size: 1.8rem; letter-spacing: 0.04em;
+            }}
+            .purchase-popup-card .popup-amount {{
+                color: #333 !important; font-size: 0.85rem; margin-bottom: 0.75rem;
+            }}
+            .purchase-popup-card .popup-divider {{
+                border: none; border-top: 1px solid #ddd; margin: 0.75rem 0;
+            }}
+            .purchase-popup-card .popup-note {{
+                color: #555 !important; font-size: 0.8rem; font-style: italic;
+            }}
+            </style>
+            <div class="purchase-popup-card">
+                <h3>🪙 {est} coins</h3>
+                <div class="popup-amount">Amount: <b>{vnd:,} VND</b> &nbsp;|&nbsp; Rate: 1,000 VND = 1 coin</div>
+                <hr class="popup-divider">
+                <div class="popup-note">An admin will review and approve your request.</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        col_a, col_b = st.sidebar.columns(2)
+        with col_a:
+            if st.button("✓  Confirm", key="popup_confirm", use_container_width=True):
+                try:
+                    req_id = db.request_purchase(user_id, vnd)
+                    st.session_state._purchase_success = f"Request #{req_id} sent! Awaiting admin approval."
+                    st.session_state._show_purchase_popup = False
+                    st.rerun()
+                except ValueError as e:
+                    st.sidebar.error(str(e))
+        with col_b:
+            if st.button("✕  Cancel", key="popup_cancel", use_container_width=True):
+                st.session_state._show_purchase_popup = False
+                st.rerun()
 
     if st.session_state.get("_purchase_success"):
         st.sidebar.success(st.session_state._purchase_success)
