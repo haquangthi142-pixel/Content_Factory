@@ -26,6 +26,9 @@ GLOBAL_CSS = """
 .stApp { background: var(--bg-deep); }
 .stMainBlockContainer, .block-container { background: var(--bg-deep) !important; }
 
+/* Hide default Streamlit header — Deploy button & hamburger menu */
+header[data-testid="stHeader"] { display: none !important; }
+
 section[data-testid="stSidebar"] {
     background: #0d1117;
     border-right: 1px solid var(--border-gold);
@@ -143,6 +146,20 @@ hr { border-color: var(--border-subtle) !important; margin: 0.5rem 0 !important;
 .match-meta {
     margin-top: 8px; font-family: 'Chakra Petch', sans-serif;
     font-size: 0.72rem; color: var(--text-muted); display: flex; gap: 12px; flex-wrap: wrap;
+}
+
+.match-handicap-badge {
+    display: inline-block;
+    margin-top: 0.5rem;
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--gold-bright);
+    background: rgba(212, 168, 67, 0.12);
+    border: 1px solid rgba(212, 168, 67, 0.25);
+    border-radius: 8px;
+    padding: 3px 12px;
+    letter-spacing: 0.03em;
 }
 
 @media (max-width: 640px) {
@@ -297,6 +314,8 @@ def match_card_db(match: dict):
     """Render a DB match row using the match-card CSS (same style as Overview tab)."""
     home_name = match["team_a"] or "TBD"
     away_name = match["team_b"] or "TBD"
+    home_crest = match.get("crest_a") or ""
+    away_crest = match.get("crest_b") or ""
     status = match.get("status") or "Not Started"
     score_a = match.get("score_a")
     score_b = match.get("score_b")
@@ -340,7 +359,22 @@ def match_card_db(match: dict):
     else:
         score_html = '<div class="match-score pending">vs</div>'
 
+    home_img = f'<img src="{home_crest}" alt="" style="max-height:44px">' if home_crest else ""
+    away_img = f'<img src="{away_crest}" alt="" style="max-height:44px">' if away_crest else ""
+
     live_class = " live" if is_live else ""
+
+    # Handicap badge
+    h_line = match.get("handicap_line")
+    h_fav = match.get("handicap_favorite")
+    handicap_html = ""
+    if h_line is not None and h_fav is not None:
+        fav_name = home_name if h_fav == "A" else away_name
+        h_fee = match.get("handicap_fee") or 5
+        handicap_html = f"""
+        <div class="match-handicap-badge" title="Handicap: {html.escape(fav_name)} gives {h_line} goals, {h_fee}% fee">
+            ⚽ {html.escape(fav_name)} −{h_line} · {h_fee}%
+        </div>"""
 
     st.markdown(f"""
     <div class="match-card{live_class}">
@@ -350,18 +384,21 @@ def match_card_db(match: dict):
         </div>
         <div class="match-card-inner">
             <div class="match-team">
+                {home_img}
                 <div class="match-team-name">{html.escape(home_name)}</div>
             </div>
             <div class="match-score-area">
                 {score_html}
             </div>
             <div class="match-team">
+                {away_img}
                 <div class="match-team-name">{html.escape(away_name)}</div>
             </div>
             <div style="flex:0 0 auto;text-align:center">
                 <span class="match-status-badge" style="background:{badge_color}">{status_label}</span>
             </div>
         </div>
+        {handicap_html}
     </div>
     """, unsafe_allow_html=True)
 
