@@ -152,13 +152,13 @@ hr { border-color: var(--border-subtle) !important; margin: 0.5rem 0 !important;
     display: inline-block;
     margin-top: 0.5rem;
     font-family: 'Chakra Petch', sans-serif;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    color: var(--gold-bright);
-    background: rgba(212, 168, 67, 0.12);
-    border: 1px solid rgba(212, 168, 67, 0.25);
+    color: #f0c75e;
+    background: rgba(212, 168, 67, 0.18);
+    border: 1px solid rgba(212, 168, 67, 0.35);
     border-radius: 8px;
-    padding: 3px 12px;
+    padding: 4px 14px;
     letter-spacing: 0.03em;
 }
 
@@ -371,10 +371,11 @@ def match_card_db(match: dict):
     if h_line is not None and h_fav is not None:
         fav_name = home_name if h_fav == "A" else away_name
         und_name = away_name if h_fav == "A" else home_name
-        handicap_html = f"""
-        <div class="match-handicap-badge" title="Handicap: {html.escape(fav_name)} −{h_line} vs {html.escape(und_name)} +{h_line}">
-            ⚽ {html.escape(fav_name)} −{h_line} &nbsp;·&nbsp; {html.escape(und_name)} +{h_line}
-        </div>"""
+        handicap_html = (
+            '<div class="match-handicap-badge">'
+            f'⚽ {html.escape(fav_name)} −{h_line}  ·  {html.escape(und_name)} +{h_line}'
+            '</div>'
+        )
 
     st.markdown(f"""
     <div class="match-card{live_class}">
