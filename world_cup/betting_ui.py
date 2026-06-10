@@ -25,13 +25,67 @@ BETTING_CSS = """
     --shadow-card: 0 2px 16px rgba(0,0,0,0.35);
 }
 
-.login-card { background: var(--bg-surface); border: 1px solid var(--border-subtle);
-    border-radius: 18px; padding: 3rem 2.5rem; max-width: 480px; margin: 0 auto;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.55); position: relative; overflow: hidden; }
-.login-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0;
-    height: 4px; background: linear-gradient(90deg, transparent, var(--gold-bright), transparent); opacity: 0.7; }
-.login-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    background: radial-gradient(ellipse at 50% 0%, rgba(240,199,94,0.08) 0%, transparent 65%); pointer-events: none; }
+    /* Hide default Streamlit header & footer */
+    header[data-testid="stHeader"] { display: none !important; }
+    footer { display: none !important; }
+    #MainMenu { visibility: hidden !important; }
+
+                /* ── Login form card ── */
+    [data-testid='stForm'] {
+        background: var(--bg-surface) !important;
+        border: 1px solid var(--border-subtle) !important;
+        border-radius: 14px !important; padding: 1.75rem 1.5rem !important;
+        max-width: 380px !important; margin: 0 auto !important;
+        box-shadow: 0 12px 60px rgba(0,0,0,0.65), 0 0 120px rgba(212,168,67,0.04) !important;
+        animation: card-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+        position: relative;
+    }
+    @keyframes card-in {
+        from { opacity: 0; transform: translateY(24px) scale(0.97); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    [data-testid='stForm']::before {
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+        background: linear-gradient(90deg, transparent, var(--gold-bright), transparent);
+        opacity: 0.6; border-radius: 14px 14px 0 0;
+    }
+
+    [data-testid='stForm'] [data-testid='stTextInput'] input {
+        background: var(--bg-deep) !important;
+        border: 1px solid var(--border-subtle) !important;
+        border-radius: 6px !important;
+        color: var(--text-primary) !important;
+        font-family: 'Chakra Petch', sans-serif !important;
+        font-size: 0.85rem !important;
+        padding: 0.5rem 0.75rem !important;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    [data-testid='stForm'] [data-testid='stTextInput'] input:focus {
+        border-color: var(--border-active) !important;
+        box-shadow: 0 0 0 2px rgba(212,168,67,0.12) !important;
+    }
+    [data-testid='stForm'] [data-testid='stTextInput'] label {
+        font-family: 'Chakra Petch', sans-serif !important;
+        font-size: 0.7rem !important; color: var(--text-secondary) !important;
+        letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    [data-testid='stForm'] [data-testid='stFormSubmitButton'] button {
+        background: linear-gradient(135deg, #c9a94e 0%, #8b6914 100%) !important;
+        border: none !important; color: #0a0e14 !important;
+        font-family: 'Bebas Neue', sans-serif !important;
+        font-size: 1.1rem !important; letter-spacing: 0.1em !important;
+        padding: 0.6rem 2rem !important; border-radius: 8px !important;
+        transition: all 0.2s; text-transform: uppercase; width: 100%;
+    }
+    [data-testid='stForm'] [data-testid='stFormSubmitButton'] button:hover {
+        background: linear-gradient(135deg, #f0c75e 0%, #c9a94e 100%) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 24px rgba(212,168,67,0.35);
+    }
+
+    @media (max-height: 680px) {
+        [data-testid='stForm'] { padding: 1.25rem 1.25rem !important; }
+    }
 
 .header-bar { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
     background: var(--bg-surface); border: 1px solid var(--border-subtle);
@@ -175,35 +229,13 @@ def _inject_css():
 
 def render_login_screen():
     _inject_css()
-    st.markdown("""
-    <div style="text-align:center;padding-top:3rem;">
-        <h1 style="font-size:4.5rem;margin-bottom:0;background:linear-gradient(180deg, #f5d78c 0%, #c9a94e 60%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
-            WORLD CUP 2026
-        </h1>
-        <p style="font-family:'Chakra Petch',sans-serif;color:var(--text-secondary);font-size:1.2rem;margin-top:-0.5rem;">
-            Internal Betting Game
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    col1, col2, col3 = st.columns([1, 1.3, 1])
-    with col2:
-        st.markdown("""
-        <div class="login-card">
-            <h3 style="margin-top:0;text-align:center;font-size:1.8rem;">Welcome</h3>
-            <p style="text-align:center;font-size:0.95rem;color:var(--text-secondary);margin-bottom:2rem;">
-                Sign in or register to start betting
-            </p>
-        """, unsafe_allow_html=True)
-
+    with st.form("login_form"):
         phone = st.text_input("Phone Number", placeholder="+84xxxxxxxxx", key="login_phone")
         name = st.text_input("Full Name", placeholder="Nguyen Van A", key="login_name")
         password = st.text_input("Password", type="password", placeholder="Min 4 characters", key="login_password")
-        st.markdown("<br>", unsafe_allow_html=True)
+        submitted = st.form_submit_button("Enter the Game  →", use_container_width=True)
 
-        if st.button("Enter the Game  →", use_container_width=True, key="login_btn"):
+        if submitted:
             if not (phone.strip() and name.strip() and password.strip()):
                 st.warning("Please fill in all fields.")
             elif len(password.strip()) < 4:
@@ -238,8 +270,6 @@ def render_login_screen():
                 else:
                     db.record_failed_login(phone.strip())
                     st.error("Wrong password. Try again.")
-
-        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -289,8 +319,6 @@ def render_place_bets_tab(user_id: int, coins: int):
                     n = db.sync_matches_from_api()
                 st.success(f"Synced {n} matches")
                 st.rerun()
-
-    st.info("💰  **Payout:** 2× your bet on correct outcome (5% fee deducted). Bets must be in multiples of 10 coins.")
 
     conn = db.get_connection()
     all_matches = conn.execute(
@@ -391,9 +419,13 @@ def _render_existing_bets(bets: list, m: dict):
     rows = []
     for b in bets:
         if b["market"] == "handicap":
-            side = "Favorite" if b["handicap_side"] == "favorite" else "Underdog"
             hl = b["handicap_line"]
-            choice = f"Handicap · {side} @ {hl if hl is not None else '?'}"
+            fav = m["team_a"] if m["handicap_favorite"] == "A" else m["team_b"]
+            und = m["team_b"] if m["handicap_favorite"] == "A" else m["team_a"]
+            if b["handicap_side"] == "favorite":
+                choice = f"{fav} −{hl}"
+            else:
+                choice = f"{und} +{hl}"
         else:
             cd = {"A": f"{m['team_a']} Win", "B": f"{m['team_b']} Win", "DRAW": "Draw"}
             choice = f"1X2 · {cd.get(b['bet_choice'], b['bet_choice'])}"
@@ -480,7 +512,7 @@ def _render_bet_slip(m: dict, coins: int, match_id: int):
         return
 
     choice = st.radio(
-        "Pick outcome:",
+        "",
         [f"{m['team_a']} Win", "Draw", f"{m['team_b']} Win"],
         key=f"choice_{match_id}",
         horizontal=True,
@@ -524,12 +556,10 @@ def _render_bet_slip(m: dict, coins: int, match_id: int):
 
 
 def _render_handicap_bet_slip(m: dict, coins: int, match_id: int):
-    """Handicap betting form: pick favorite/underdog, amount, confirm."""
-    from world_cup.game import get_handicap_payout
-
+    """Handicap betting form: pick side, amount, confirm."""
     line = m["handicap_line"]
     fav_team = m["team_a"] if m["handicap_favorite"] == "A" else m["team_b"]
-    multiplier = get_handicap_payout(line)
+    und_team = m["team_b"] if m["handicap_favorite"] == "A" else m["team_a"]
     fee = m.get("handicap_fee") or 5
 
     st.markdown('<div class="bet-slip">', unsafe_allow_html=True)
@@ -540,17 +570,17 @@ def _render_handicap_bet_slip(m: dict, coins: int, match_id: int):
         return
 
     st.caption(
-        f"Handicap {line} · Favorite: **{fav_team}** gives {line} goals · "
-        f"Payout: **{multiplier}×** · Fee: {fee}% on stake"
+        f"**{fav_team} −{line}**  ·  **{und_team} +{line}**  ·  "
+        f"Payout: 2× − {fee}% fee"
     )
 
     side = st.radio(
         "Pick side:",
-        [f"Favorite ({fav_team} −{line})", f"Underdog (opponent +{line})"],
+        [f"{fav_team} −{line}", f"{und_team} +{line}"],
         key=f"hc_side_{match_id}",
         horizontal=True,
     )
-    side_code = "favorite" if side.startswith("Favorite") else "underdog"
+    side_code = "favorite" if side.startswith(fav_team) else "underdog"
 
     num_key = f"hc_num_{match_id}"
     if num_key not in st.session_state:
@@ -599,7 +629,8 @@ def render_my_bets_tab(user_id: int):
     st.subheader("My Betting History")
     conn = db.get_connection()
     my_bets = conn.execute(
-        """SELECT b.*, m.team_a, m.team_b, m.match_time, m.status as match_status, m.result
+        """SELECT b.*, m.team_a, m.team_b, m.match_time, m.status as match_status, m.result,
+                  m.handicap_favorite
            FROM bets b JOIN matches m ON b.match_id = m.match_id
            WHERE b.user_id = ? ORDER BY b.created_at DESC LIMIT 50""",
         (user_id,),
@@ -614,9 +645,13 @@ def render_my_bets_tab(user_id: int):
           "Lost": "var(--red-live)", "Refunded": "#95a5a6"}
     for b in my_bets:
         if b["market"] == "handicap":
-            side = "Favorite" if b["handicap_side"] == "favorite" else "Underdog"
             hl = b["handicap_line"]
-            choice_str = f"Handicap · {side} @ {hl if hl is not None else '?'}"
+            fav = b["team_a"] if b["handicap_favorite"] == "A" else b["team_b"]
+            und = b["team_b"] if b["handicap_favorite"] == "A" else b["team_a"]
+            if b["handicap_side"] == "favorite":
+                choice_str = f"{fav} −{hl}"
+            else:
+                choice_str = f"{und} +{hl}"
         else:
             cd = {"A": f"{b['team_a']} Win", "B": f"{b['team_b']} Win", "DRAW": "Draw"}
             choice_str = cd[b['bet_choice']] if b['bet_choice'] in cd else b['bet_choice']
